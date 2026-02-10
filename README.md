@@ -155,5 +155,18 @@ All with **near-zero fees**, **full on-chain transparency**, and a **clean UX st
 
 ---
 
+## **Documentation**
+
+For developers interested in understanding the codebase structure, file significance, and development workflow, please refer to:
+
+📖 **[WORKFLOW.md](./WORKFLOW.md)** - Comprehensive guide covering:
+- Repository architecture and organization
+- Detailed explanation of every file's purpose
+- Development workflow and best practices
+- Build, test, and deployment processes
+- Step-by-step guides for new developers
+
+---
+
 **UniLedger = One ledger for every university event.  
 No chaos. No confusion. Just clean, transparent campus operations.**
