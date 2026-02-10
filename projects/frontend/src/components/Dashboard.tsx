@@ -1,6 +1,7 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useWallet, WalletId } from "@txnlab/use-wallet-react"
 import { useAuth } from "../hooks/useAuth"
+import { useDashboardData } from "../hooks/useDashboard"
 
 const Dashboard = () => {
   const { activeAddress, wallets } = useWallet()
@@ -8,14 +9,31 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(false)
   const [activeSection, setActiveSection] = useState("dashboard")
   const [showWalletMenu, setShowWalletMenu] = useState(false)
+  const [selectedChannel, setSelectedChannel] = useState<string | null>(null)
 
-  // TODO: These should come from your backend/database
-  // For now, setting as false - update based on actual user data
-  const [isOrganizer] = useState(false) // Set to true if user is organizer of any event
-  const [isMember] = useState(false) // Set to true if user is member of any club/event
+  // Fetch dashboard data (clubs and events)
+  const { data: dashboardData, isLoading: isDashboardLoading, error: dashboardError } = useDashboardData()
 
-  // User should see treasury only if they are organizer or member
-  const canViewTreasury = isOrganizer || isMember
+  // Determine if user can view treasury based on their memberships
+  const clubs = dashboardData?.clubs || []
+  const events = dashboardData?.events || []
+  const isOwner = clubs.length > 0 || events.length > 0
+
+  // User should see treasury only if they own clubs or events
+  const canViewTreasury = isOwner
+
+  // Log dashboard data when it loads
+  useEffect(() => {
+    if (dashboardData && !isDashboardLoading) {
+      console.log('=== DASHBOARD DATA LOADED ===')
+      console.log('Total Clubs Owned:', clubs.length)
+      console.log('Total Events Owned:', events.length)
+      console.log('Is Owner:', isOwner)
+      console.log('Can View Treasury:', canViewTreasury)
+      console.log('Full Dashboard Data:', dashboardData)
+      console.log('============================')
+    }
+  }, [dashboardData, isDashboardLoading])
 
   const connectLocalnet = async () => {
     try {
@@ -67,97 +85,154 @@ const Dashboard = () => {
 
         {/* Navigation */}
         <nav className="flex-1 p-4 overflow-y-auto">
+          {/* Dashboard Button */}
           <div className="mb-6">
             <button
-              onClick={() => setActiveSection("dashboard")}
+              onClick={() => {
+                setActiveSection("dashboard")
+                setSelectedChannel(null) // Reset channel when going to dashboard
+                console.log('Navigating to Dashboard')
+              }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${activeSection === "dashboard"
                 ? "bg-blue-50 text-blue-600"
                 : "text-gray-700 hover:bg-gray-50"
                 }`}
             >
               <span className="text-lg">📊</span>
-              <span className="font-medium">Main Dashboard</span>
+              <span className="font-medium">Dashboard</span>
             </button>
           </div>
 
-          <div className="mb-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
-              Management
-            </p>
-            <div className="space-y-1">
-              {/* Treasury & Payments - Only show if user is organizer or member */}
-              {canViewTreasury && (
-                <button
-                  onClick={() => setActiveSection("treasury")}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${activeSection === "treasury"
-                    ? "bg-blue-50 text-blue-600"
-                    : "text-gray-700 hover:bg-gray-50"
-                    }`}
-                >
-                  <span className="text-lg">💰</span>
-                  <span className="text-sm">Treasury & Payments</span>
-                </button>
-              )}
-              <button
-                onClick={() => setActiveSection("clubs")}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${activeSection === "clubs"
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-gray-700 hover:bg-gray-50"
-                  }`}
-              >
-                <span className="text-lg">👥</span>
-                <span className="text-sm">Clubs</span>
-              </button>
-              <button
-                onClick={() => setActiveSection("volunteers")}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${activeSection === "volunteers"
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-gray-700 hover:bg-gray-50"
-                  }`}
-              >
-                <span className="text-lg">🙋</span>
-                <span className="text-sm">Volunteers</span>
-              </button>
+          {/* Loading State */}
+          {isDashboardLoading && (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
             </div>
-          </div>
+          )}
 
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
-              Events & Ops
-            </p>
-            <div className="space-y-1">
-              <button
-                onClick={() => setActiveSection("events")}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${activeSection === "events"
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-gray-700 hover:bg-gray-50"
-                  }`}
-              >
-                <span className="text-lg">📅</span>
-                <span className="text-sm">Events</span>
-              </button>
-              <button
-                onClick={() => setActiveSection("tickets")}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${activeSection === "tickets"
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-gray-700 hover:bg-gray-50"
-                  }`}
-              >
-                <span className="text-lg">🎫</span>
-                <span className="text-sm">Tickets & Assets</span>
-              </button>
-              <button
-                onClick={() => setActiveSection("chats")}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${activeSection === "chats"
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-gray-700 hover:bg-gray-50"
-                  }`}
-              >
-                <span className="text-lg">💬</span>
-                <span className="text-sm">Chats & Spaces</span>
-              </button>
+          {/* My Clubs Section */}
+          {!isDashboardLoading && (
+            <div className="mb-6">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-3">
+                My Clubs {clubs.length > 0 && `(${clubs.length})`}
+              </p>
+              {clubs.length > 0 ? (
+                <div className="space-y-1">
+                  {clubs.map((club: any) => {
+                    // Log club data to console
+                    const channelCount = 2 // Will be replaced with real count from API
+                    console.log('Club:', {
+                      id: club.id,
+                      name: club.name,
+                      banner_url: club.banner_url,
+                      created_at: club.created_at,
+                      channels: channelCount
+                    })
+
+                    return (
+                      <button
+                        key={club.id}
+                        onClick={() => {
+                          setActiveSection(`club-${club.id}`)
+                          setSelectedChannel('general') // Auto-select first channel
+                          console.log('Clicked club:', club.id, club.name)
+                          console.log('Auto-selected channel: general')
+                          console.log('Total channels:', channelCount)
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${activeSection === `club-${club.id}`
+                          ? "bg-blue-50 text-blue-600"
+                          : "text-gray-700 hover:bg-gray-50"
+                          }`}
+                      >
+                        {club.banner_url ? (
+                          <img src={club.banner_url} alt={club.name} className="w-8 h-8 rounded object-cover" />
+                        ) : (
+                          <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-400 rounded flex items-center justify-center text-white text-sm font-bold">
+                            {club.name[0]}
+                          </div>
+                        )}
+                        <div className="flex-1 text-left">
+                          <p className="text-sm font-medium truncate">{club.name}</p>
+                          <p className="text-xs text-gray-500">Owner</p>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="px-4 py-3 text-center bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500">No clubs yet</p>
+                </div>
+              )}
             </div>
-          </div>
+          )}
+
+          {/* My Events Section */}
+          {!isDashboardLoading && (
+            <div className="mb-6">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-3">
+                My Events {events.length > 0 && `(${events.length})`}
+              </p>
+              {events.length > 0 ? (
+                <div className="space-y-1">
+                  {events.map((event: any) => {
+                    // Log event data to console
+                    const channelCount = 2 // Will be replaced with real count from API
+                    console.log('Event:', {
+                      id: event.id,
+                      title: event.title,
+                      banner_url: event.banner_url,
+                      event_date: event.event_date,
+                      club_id: event.club_id,
+                      club_name: event.club_name,
+                      sponsor_name: event.sponsor_name,
+                      created_at: event.created_at,
+                      channels: channelCount
+                    })
+
+                    return (
+                      <button
+                        key={event.id}
+                        onClick={() => {
+                          setActiveSection(`event-${event.id}`)
+                          setSelectedChannel('general') // Auto-select first channel
+                          console.log('Clicked event:', event.id, event.title)
+                          console.log('Auto-selected channel: general')
+                          console.log('Total channels:', channelCount)
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${activeSection === `event-${event.id}`
+                          ? "bg-blue-50 text-blue-600"
+                          : "text-gray-700 hover:bg-gray-50"
+                          }`}
+                      >
+                        {event.banner_url ? (
+                          <img src={event.banner_url} alt={event.title} className="w-8 h-8 rounded object-cover" />
+                        ) : (
+                          <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-400 rounded flex items-center justify-center text-white text-sm font-bold">
+                            {event.title[0]}
+                          </div>
+                        )}
+                        <div className="flex-1 text-left">
+                          <p className="text-sm font-medium truncate">{event.title}</p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            {event.club_name ? (
+                              <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{event.club_name}</span>
+                            ) : event.sponsor_name ? (
+                              <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">{event.sponsor_name}</span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="px-4 py-3 text-center bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500">No events yet</p>
+                </div>
+              )}
+            </div>
+          )}
         </nav>
 
         {/* User Profile */}
@@ -186,6 +261,67 @@ const Dashboard = () => {
           </button>
         </div>
       </aside>
+
+      {/* Secondary Sidebar - Channels (Discord-like) */}
+      {(activeSection.startsWith('club-') || activeSection.startsWith('event-')) && (
+        <aside className="w-60 bg-gray-100 border-r border-gray-200 flex flex-col flex-shrink-0">
+          {/* Channel Header */}
+          <div className="p-4 border-b border-gray-200 bg-white">
+            <h3 className="font-semibold text-gray-800 truncate">
+              {(() => {
+                // Get the club or event name
+                if (activeSection.startsWith('club-')) {
+                  const clubId = activeSection.replace('club-', '')
+                  const club = clubs.find((c: any) => c.id === clubId)
+                  return club?.name || 'Club'
+                } else {
+                  const eventId = activeSection.replace('event-', '')
+                  const event = events.find((e: any) => e.id === eventId)
+                  return event?.title || 'Event'
+                }
+              })()}
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">
+              {activeSection.startsWith('club-') ? 'Club channels' : 'Event channels'}
+            </p>
+          </div>
+
+          {/* Channels List */}
+          <nav className="flex-1 p-3 overflow-y-auto">
+            <div className="space-y-1">
+              {/* General Channel (default) */}
+              <button
+                onClick={() => {
+                  setSelectedChannel('general')
+                  console.log('Selected channel: general')
+                }}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition ${selectedChannel === 'general'
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-700 hover:bg-gray-200"
+                  }`}
+              >
+                <span className="text-gray-500">#</span>
+                <span className="text-sm font-medium">general</span>
+              </button>
+
+              {/* Announcements Channel */}
+              <button
+                onClick={() => {
+                  setSelectedChannel('announcements')
+                  console.log('Selected channel: announcements')
+                }}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition ${selectedChannel === 'announcements'
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-700 hover:bg-gray-200"
+                  }`}
+              >
+                <span className="text-gray-500">#</span>
+                <span className="text-sm font-medium">announcements</span>
+              </button>
+            </div>
+          </nav>
+        </aside>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
@@ -354,364 +490,429 @@ const Dashboard = () => {
         </header>
 
         {/* Dashboard Content */}
-        <div className="flex-1 overflow-y-auto p-8">
-          {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Overview</h1>
-            <p className="text-gray-600">Welcome back. Here's what's happening in your ecosystem today.</p>
-          </div>
-
-          {/* Metrics Cards */}
-          <div className={`grid grid-cols-1 md:grid-cols-2 ${canViewTreasury ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6 mb-8`}>
-            {/* Total Treasury - Only show if user is organizer or member */}
-            {canViewTreasury && (
-              <div className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Total Treasury</p>
-                    <h3 className="text-2xl font-bold text-gray-900">₹1,24,592.00</h3>
-                  </div>
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                    <span className="text-xl">🏛️</span>
-                  </div>
-                </div>
+        <div className="flex-1 overflow-y-auto">
+          {/* Show Chat if channel is selected */}
+          {selectedChannel ? (
+            <div className="h-full flex flex-col">
+              {/* Channel Header */}
+              <div className="px-6 py-4 border-b border-gray-200 bg-white">
                 <div className="flex items-center gap-2">
-                  <span className="text-green-600 text-sm font-medium">↑ 4.2%</span>
-                  <span className="text-gray-500 text-xs">Across all club accounts</span>
+                  <span className="text-gray-500 text-xl">#</span>
+                  <h2 className="text-xl font-semibold text-gray-900">{selectedChannel}</h2>
                 </div>
+                <p className="text-sm text-gray-500 mt-1">
+                  {selectedChannel === 'general' ? 'General discussion for everyone' : 'Important announcements and updates'}
+                </p>
               </div>
-            )}
 
-            {/* Active Events */}
-            <div className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Active Events</p>
-                  <h3 className="text-2xl font-bold text-gray-900">12</h3>
-                </div>
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <span className="text-xl">📅</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-blue-600 text-sm font-medium">+3 pending approval</span>
-              </div>
-              <div className="mt-3 h-1 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-600 rounded-full" style={{ width: "75%" }}></div>
-              </div>
-            </div>
-
-            {/* Active Volunteers */}
-            <div className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Active Volunteers</p>
-                  <h3 className="text-2xl font-bold text-gray-900">86</h3>
-                </div>
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <span className="text-xl">🙋</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex -space-x-2">
-                  <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full border-2 border-white"></div>
-                  <div className="w-6 h-6 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full border-2 border-white"></div>
-                  <div className="w-6 h-6 bg-gradient-to-br from-pink-400 to-pink-600 rounded-full border-2 border-white"></div>
-                  <div className="w-6 h-6 bg-gray-200 rounded-full border-2 border-white flex items-center justify-center">
-                    <span className="text-xs text-gray-600">+3</span>
+              {/* Messages Area */}
+              <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+                <div className="space-y-4">
+                  {/* Welcome Message */}
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-3xl">#</span>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      Welcome to #{selectedChannel}!
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      This is the beginning of the #{selectedChannel} channel.
+                    </p>
                   </div>
-                </div>
-                <span className="text-green-600 text-sm font-medium">↑ 12%</span>
-              </div>
-            </div>
 
-            {/* Reward NFTs */}
-            <div className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Reward NFTs Minted</p>
-                  <h3 className="text-2xl font-bold text-gray-900">1,204</h3>
-                </div>
-                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <span className="text-xl">🎨</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-600 text-sm">Total supply</span>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">Next mint scheduled in 2 days</p>
-            </div>
-          </div>
-
-          {/* Two Column Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Recent Transactions */}
-            <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200">
-              <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Recent Transactions</h2>
-                <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                  View All
-                </button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Type
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Entity
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Amount/Value
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    <tr className="hover:bg-gray-50 transition">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <span>💳</span>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">Payment Received</p>
-                            <p className="text-xs text-gray-500">Today, 10:24 AM</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-gray-900">Chess Club</p>
-                        <p className="text-xs text-gray-500">Escrow Locked</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                          Settled
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <p className="text-sm font-semibold text-green-600">+₹250.00</p>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-gray-50 transition">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                            <span>🎫</span>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">Ticket Minted</p>
-                            <p className="text-xs text-gray-500">Yesterday, 4:15 PM</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-gray-900">Annual Gala</p>
-                        <p className="text-xs text-gray-500">Asset Opt-In</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
-                          Processing
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <p className="text-sm font-semibold text-gray-900">1 NFT</p>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-gray-50 transition">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                            <span>📝</span>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">Expense Logged</p>
-                            <p className="text-xs text-gray-500">Yesterday, 2:30 PM</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-gray-900">Volunteer Snacks</p>
-                        <p className="text-xs text-gray-500">Audit Pending</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">
-                          Review
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <p className="text-sm font-semibold text-red-600">-₹45.00</p>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-gray-50 transition">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
-                            <span>📤</span>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">IPFS Upload</p>
-                            <p className="text-xs text-gray-500">Oct 24, 11:00 AM</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-gray-900">Event Space Docs</p>
-                        <p className="text-xs text-gray-500">CID Stored</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                          Complete
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <p className="text-sm font-semibold text-gray-900">24MB</p>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Right Column */}
-            <div className="space-y-6">
-              {/* Latest Notifications */}
-              <div className="bg-white rounded-xl border border-gray-200">
-                <div className="p-6 border-b border-gray-200">
-                  <h2 className="text-lg font-semibold text-gray-900">Latest Notifications</h2>
-                </div>
-                <div className="p-6 space-y-4">
+                  {/* Sample Messages (will be replaced with real data) */}
                   <div className="flex gap-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm">📋</span>
+                    <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-semibold text-sm">U</span>
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900 mb-1">
-                        <span className="font-semibold">New Policy:</span> Updated expense logging requirements.
-                      </p>
-                      <p className="text-xs text-gray-500">1 hour ago</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm">⚠️</span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900 mb-1">
-                        <span className="font-semibold">Action Required:</span> Verify 3 pending volunteer applications.
-                      </p>
-                      <p className="text-xs text-gray-500">4 hours ago</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm">✅</span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900 mb-1">
-                        <span className="font-semibold">System:</span> Atomic transfers settled successfully.
-                      </p>
-                      <p className="text-xs text-gray-500">Yesterday</p>
+                      <div className="flex items-baseline gap-2 mb-1">
+                        <span className="font-semibold text-gray-900">User</span>
+                        <span className="text-xs text-gray-500">Today at 12:00 PM</span>
+                      </div>
+                      <p className="text-gray-700">Welcome to the channel! 👋</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Quick Actions */}
-              <div className="bg-white rounded-xl border border-gray-200">
-                <div className="p-6 border-b border-gray-200">
-                  <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
+              {/* Message Input */}
+              <div className="p-4 bg-white border-t border-gray-200">
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    placeholder={`Message #${selectedChannel}`}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+                    Send
+                  </button>
                 </div>
-                <div className="p-6 grid grid-cols-2 gap-4">
-                  <button className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition">
+              </div>
+            </div>
+          ) : (
+            /* Original Dashboard Content */
+            <div className="p-8">
+              {/* Page Header */}
+              <div className="mb-8">
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard Overview</h1>
+                <p className="text-gray-600">Welcome back. Here's what's happening in your ecosystem today.</p>
+              </div>
+
+              {/* Metrics Cards */}
+              <div className={`grid grid-cols-1 md:grid-cols-2 ${canViewTreasury ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6 mb-8`}>
+                {/* Total Treasury - Only show if user is organizer or member */}
+                {canViewTreasury && (
+                  <div className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <p className="text-sm text-gray-600 mb-1">Total Treasury</p>
+                        <h3 className="text-2xl font-bold text-gray-900">₹1,24,592.00</h3>
+                      </div>
+                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                        <span className="text-xl">🏛️</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-600 text-sm font-medium">↑ 4.2%</span>
+                      <span className="text-gray-500 text-xs">Across all club accounts</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Active Events */}
+                <div className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Active Events</p>
+                      <h3 className="text-2xl font-bold text-gray-900">12</h3>
+                    </div>
                     <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <span className="text-xl">📝</span>
-                    </div>
-                    <span className="text-sm font-medium text-gray-700">New Expense</span>
-                  </button>
-                  <button className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-lg hover:bg-purple-50 hover:border-purple-300 transition">
-                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <span className="text-xl">👤</span>
-                    </div>
-                    <span className="text-sm font-medium text-gray-700">Add Volunteer</span>
-                  </button>
-                  <button className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                       <span className="text-xl">📅</span>
                     </div>
-                    <span className="text-sm font-medium text-gray-700">Event Setup</span>
-                  </button>
-                  <button className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <span className="text-xl">☁️</span>
-                    </div>
-                    <span className="text-sm font-medium text-gray-700">Upload IPFS</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Upcoming Event Status */}
-          <div className="mt-8 bg-white rounded-xl border border-gray-200">
-            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Upcoming Event Status</h2>
-              <button className="text-gray-400 hover:text-gray-600">
-                <span className="text-xl">⋯</span>
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Annual Gala 2024 */}
-                <div className="border border-gray-200 rounded-lg p-5">
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-purple-600 font-bold text-lg">AG</span>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 mb-1">Annual Gala 2024</h3>
-                      <p className="text-sm text-gray-600">Ticket Sales & Setup</p>
-                    </div>
                   </div>
-                  <div className="mb-2">
-                    <div className="flex items-center justify-between text-sm mb-1">
-                      <span className="text-gray-600">Minting Tickets</span>
-                      <span className="text-purple-600 font-semibold">85%</span>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-purple-600 rounded-full" style={{ width: "85%" }}></div>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-blue-600 text-sm font-medium">+3 pending approval</span>
+                  </div>
+                  <div className="mt-3 h-1 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-600 rounded-full" style={{ width: "75%" }}></div>
                   </div>
                 </div>
 
-                {/* Community Cleanup */}
-                <div className="border border-gray-200 rounded-lg p-5">
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-pink-600 font-bold text-lg">CC</span>
+                {/* Active Volunteers */}
+                <div className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Active Volunteers</p>
+                      <h3 className="text-2xl font-bold text-gray-900">86</h3>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 mb-1">Community Cleanup</h3>
-                      <p className="text-sm text-gray-600">Volunteer Signup</p>
+                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <span className="text-xl">🙋</span>
                     </div>
                   </div>
-                  <div className="mb-2">
-                    <div className="flex items-center justify-between text-sm mb-1">
-                      <span className="text-gray-600">Shift Assignment</span>
-                      <span className="text-pink-600 font-semibold">40%</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex -space-x-2">
+                      <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full border-2 border-white"></div>
+                      <div className="w-6 h-6 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full border-2 border-white"></div>
+                      <div className="w-6 h-6 bg-gradient-to-br from-pink-400 to-pink-600 rounded-full border-2 border-white"></div>
+                      <div className="w-6 h-6 bg-gray-200 rounded-full border-2 border-white flex items-center justify-center">
+                        <span className="text-xs text-gray-600">+3</span>
+                      </div>
                     </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-pink-600 rounded-full" style={{ width: "40%" }}></div>
+                    <span className="text-green-600 text-sm font-medium">↑ 12%</span>
+                  </div>
+                </div>
+
+                {/* Reward NFTs */}
+                <div className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Reward NFTs Minted</p>
+                      <h3 className="text-2xl font-bold text-gray-900">1,204</h3>
+                    </div>
+                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                      <span className="text-xl">🎨</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600 text-sm">Total supply</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Next mint scheduled in 2 days</p>
+                </div>
+              </div>
+
+              {/* Two Column Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Recent Transactions */}
+                <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200">
+                  <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-gray-900">Recent Transactions</h2>
+                    <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                      View All
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            Type
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            Entity
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            Amount/Value
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        <tr className="hover:bg-gray-50 transition">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <span>💳</span>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">Payment Received</p>
+                                <p className="text-xs text-gray-500">Today, 10:24 AM</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-gray-900">Chess Club</p>
+                            <p className="text-xs text-gray-500">Escrow Locked</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                              Settled
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <p className="text-sm font-semibold text-green-600">+₹250.00</p>
+                          </td>
+                        </tr>
+                        <tr className="hover:bg-gray-50 transition">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <span>🎫</span>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">Ticket Minted</p>
+                                <p className="text-xs text-gray-500">Yesterday, 4:15 PM</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-gray-900">Annual Gala</p>
+                            <p className="text-xs text-gray-500">Asset Opt-In</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                              Processing
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <p className="text-sm font-semibold text-gray-900">1 NFT</p>
+                          </td>
+                        </tr>
+                        <tr className="hover:bg-gray-50 transition">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                                <span>📝</span>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">Expense Logged</p>
+                                <p className="text-xs text-gray-500">Yesterday, 2:30 PM</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-gray-900">Volunteer Snacks</p>
+                            <p className="text-xs text-gray-500">Audit Pending</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">
+                              Review
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <p className="text-sm font-semibold text-red-600">-₹45.00</p>
+                          </td>
+                        </tr>
+                        <tr className="hover:bg-gray-50 transition">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
+                                <span>📤</span>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">IPFS Upload</p>
+                                <p className="text-xs text-gray-500">Oct 24, 11:00 AM</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-gray-900">Event Space Docs</p>
+                            <p className="text-xs text-gray-500">CID Stored</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                              Complete
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <p className="text-sm font-semibold text-gray-900">24MB</p>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Right Column */}
+                <div className="space-y-6">
+                  {/* Latest Notifications */}
+                  <div className="bg-white rounded-xl border border-gray-200">
+                    <div className="p-6 border-b border-gray-200">
+                      <h2 className="text-lg font-semibold text-gray-900">Latest Notifications</h2>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      <div className="flex gap-3">
+                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <span className="text-sm">📋</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900 mb-1">
+                            <span className="font-semibold">New Policy:</span> Updated expense logging requirements.
+                          </p>
+                          <p className="text-xs text-gray-500">1 hour ago</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <span className="text-sm">⚠️</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900 mb-1">
+                            <span className="font-semibold">Action Required:</span> Verify 3 pending volunteer applications.
+                          </p>
+                          <p className="text-xs text-gray-500">4 hours ago</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <span className="text-sm">✅</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900 mb-1">
+                            <span className="font-semibold">System:</span> Atomic transfers settled successfully.
+                          </p>
+                          <p className="text-xs text-gray-500">Yesterday</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="bg-white rounded-xl border border-gray-200">
+                    <div className="p-6 border-b border-gray-200">
+                      <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
+                    </div>
+                    <div className="p-6 grid grid-cols-2 gap-4">
+                      <button className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <span className="text-xl">📝</span>
+                        </div>
+                        <span className="text-sm font-medium text-gray-700">New Expense</span>
+                      </button>
+                      <button className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-lg hover:bg-purple-50 hover:border-purple-300 transition">
+                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                          <span className="text-xl">👤</span>
+                        </div>
+                        <span className="text-sm font-medium text-gray-700">Add Volunteer</span>
+                      </button>
+                      <button className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition">
+                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                          <span className="text-xl">📅</span>
+                        </div>
+                        <span className="text-sm font-medium text-gray-700">Event Setup</span>
+                      </button>
+                      <button className="flex flex-col items-center gap-2 p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <span className="text-xl">☁️</span>
+                        </div>
+                        <span className="text-sm font-medium text-gray-700">Upload IPFS</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Upcoming Event Status */}
+              <div className="mt-8 bg-white rounded-xl border border-gray-200">
+                <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900">Upcoming Event Status</h2>
+                  <button className="text-gray-400 hover:text-gray-600">
+                    <span className="text-xl">⋯</span>
+                  </button>
+                </div>
+                <div className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Annual Gala 2024 */}
+                    <div className="border border-gray-200 rounded-lg p-5">
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <span className="text-purple-600 font-bold text-lg">AG</span>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900 mb-1">Annual Gala 2024</h3>
+                          <p className="text-sm text-gray-600">Ticket Sales & Setup</p>
+                        </div>
+                      </div>
+                      <div className="mb-2">
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="text-gray-600">Minting Tickets</span>
+                          <span className="text-purple-600 font-semibold">85%</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-purple-600 rounded-full" style={{ width: "85%" }}></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Community Cleanup */}
+                    <div className="border border-gray-200 rounded-lg p-5">
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <span className="text-pink-600 font-bold text-lg">CC</span>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900 mb-1">Community Cleanup</h3>
+                          <p className="text-sm text-gray-600">Volunteer Signup</p>
+                        </div>
+                      </div>
+                      <div className="mb-2">
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="text-gray-600">Shift Assignment</span>
+                          <span className="text-pink-600 font-semibold">40%</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-pink-600 rounded-full" style={{ width: "40%" }}></div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
 

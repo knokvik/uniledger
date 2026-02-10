@@ -6,6 +6,7 @@ import dotenv from 'dotenv'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import authRoutes from './routes/auth.js'
+import dashboardRoutes from './routes/dashboard.js'
 
 dotenv.config()
 
@@ -40,6 +41,7 @@ app.use(session({
 
 // Routes
 app.use('/api/auth', authRoutes)
+app.use('/api/dashboard', dashboardRoutes)
 
 // Test page
 app.get('/test', (req, res) => {
@@ -53,7 +55,7 @@ app.get('/health', (req, res) => {
 
 // Root endpoint
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'UniLedger Backend API',
     version: '1.0.0',
     endpoints: {
@@ -64,6 +66,9 @@ app.get('/', (req, res) => {
         login: 'POST /api/auth/login',
         logout: 'POST /api/auth/logout',
         me: 'GET /api/auth/me'
+      },
+      dashboard: {
+        getData: 'GET /api/dashboard'
       }
     }
   })
@@ -72,8 +77,8 @@ app.get('/', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack)
-  res.status(500).json({ 
-    success: false, 
+  res.status(500).json({
+    success: false,
     message: 'Something went wrong!',
     error: process.env.NODE_ENV === 'development' ? err.message : undefined
   })
