@@ -4,6 +4,8 @@ import { useAuth } from "../hooks/useAuth"
 import { useDashboardData } from "../hooks/useDashboard"
 import { useChannels } from "../hooks/useChannels"
 
+import ThreeDotLoader from "./ThreeDotLoader"
+
 const Dashboard = () => {
   const { activeAddress, wallets } = useWallet()
   const { logout } = useAuth()
@@ -126,7 +128,7 @@ const Dashboard = () => {
           {/* Loading State */}
           {isDashboardLoading && (
             <div className="flex items-center justify-center py-8">
-              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              <ThreeDotLoader />
             </div>
           )}
 
@@ -312,7 +314,7 @@ const Dashboard = () => {
           <nav className="flex-1 p-3 overflow-y-auto">
             {isChannelsLoading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="w-6 h-6 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <ThreeDotLoader />
               </div>
             ) : channels && channels.length > 0 ? (
               <div className="space-y-1">
