@@ -155,5 +155,41 @@ All with **near-zero fees**, **full on-chain transparency**, and a **clean UX st
 
 ---
 
+## **Developer Documentation**
+
+For detailed documentation about the repository structure and development workflows, see:
+
+- 📚 **[Documentation Index](./DOCUMENTATION_INDEX.md)** - Quick reference guide for navigating all documentation
+- 📁 **[Repository Structure](./REPOSITORY_STRUCTURE.md)** - Detailed explanation of every file and directory (130+ files)
+- 🔧 **[Workflow Guide](./WORKFLOW_GUIDE.md)** - Complete development workflow from setup to production
+- 🚀 **[AlgoKit Setup](./Alokit_setup.md)** - AlgoKit installation and configuration
+
+### Quick Start for Developers
+
+```bash
+# 1. Install AlgoKit
+pipx install algokit
+
+# 2. Clone and bootstrap
+git clone https://github.com/knokvik/uniledger.git
+cd uniledger
+algokit project bootstrap all
+
+# 3. Start LocalNet
+algokit localnet start
+
+# 4. Deploy contracts
+cd projects/contracts
+algokit project deploy localnet
+
+# 5. Start frontend
+cd ../frontend
+pnpm run dev
+```
+
+For more details, see the [Workflow Guide](./WORKFLOW_GUIDE.md).
+
+---
+
 **UniLedger = One ledger for every university event.  
 No chaos. No confusion. Just clean, transparent campus operations.**
