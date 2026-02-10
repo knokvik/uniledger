@@ -91,7 +91,9 @@ uniledger/
   - Cost efficiency details (Algorand transaction fees)
 - **Audience:** New developers, potential contributors, stakeholders
 
-#### `Alokit_setup.md` (Note: appears to be misspelled)
+#### `Alokit_setup.md` 
+> **Note:** This file appears to have a typo in its name - it should likely be `AlgoKit_setup.md` to match the official "AlgoKit" branding. The content refers to AlgoKit setup.
+
 **Significance:** Setup and installation guide for developers.
 - **Content:**
   - Initial setup instructions (Docker, AlgoKit installation)
@@ -795,7 +797,7 @@ npm run playwright:test -- --headed  # With browser UI
 ## Next Steps for New Developers
 
 1. **Read:** `README.md` for project overview
-2. **Setup:** Follow `Alokit_setup.md` instructions
+2. **Setup:** Follow `Alokit_setup.md` (or `AlgoKit_setup.md` if renamed) instructions
 3. **Explore:** Run the counter demo end-to-end
 4. **Learn:** Study `Bank.tsx` and `bank/contract.py` together
 5. **Build:** Create your first feature (start small!)
