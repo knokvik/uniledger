@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react"
 import { useWallet, WalletId } from "@txnlab/use-wallet-react"
 import { useAuth } from "../hooks/useAuth"
 import { useDashboardData } from "../hooks/useDashboard"
+import { useChannels } from "../hooks/useChannels"
 
 const Dashboard = () => {
   const { activeAddress, wallets } = useWallet()
@@ -13,6 +14,17 @@ const Dashboard = () => {
 
   // Fetch dashboard data (clubs and events)
   const { data: dashboardData, isLoading: isDashboardLoading, error: dashboardError } = useDashboardData()
+
+  // Determine current club/event type and ID
+  const currentType = activeSection.startsWith('club-') ? 'club' : activeSection.startsWith('event-') ? 'event' : null
+  const currentId = activeSection.startsWith('club-')
+    ? activeSection.replace('club-', '')
+    : activeSection.startsWith('event-')
+      ? activeSection.replace('event-', '')
+      : null
+
+  // Fetch channels for the current club/event
+  const { data: channels, isLoading: isChannelsLoading } = useChannels(currentType, currentId)
 
   // Determine if user can view treasury based on their memberships
   const clubs = dashboardData?.clubs || []
@@ -34,6 +46,14 @@ const Dashboard = () => {
       console.log('============================')
     }
   }, [dashboardData, isDashboardLoading])
+
+  // Auto-select first channel when channels are loaded
+  useEffect(() => {
+    if (channels && channels.length > 0 && !selectedChannel) {
+      const firstChannel = channels[0]
+      setSelectedChannel(firstChannel.id)
+    }
+  }, [channels, selectedChannel])
 
   const connectLocalnet = async () => {
     try {
@@ -120,13 +140,14 @@ const Dashboard = () => {
                 <div className="space-y-1">
                   {clubs.map((club: any) => {
                     // Log club data to console
-                    const channelCount = 2 // Will be replaced with real count from API
                     console.log('Club:', {
                       id: club.id,
                       name: club.name,
                       banner_url: club.banner_url,
-                      created_at: club.created_at,
-                      channels: channelCount
+                      user_role: club.user_role,
+                      member_count: club.member_count,
+                      channel_count: club.channel_count,
+                      created_at: club.created_at
                     })
 
                     return (
@@ -134,10 +155,10 @@ const Dashboard = () => {
                         key={club.id}
                         onClick={() => {
                           setActiveSection(`club-${club.id}`)
-                          setSelectedChannel('general') // Auto-select first channel
+                          setSelectedChannel(null) // Reset, will be set by useEffect
                           console.log('Clicked club:', club.id, club.name)
-                          console.log('Auto-selected channel: general')
-                          console.log('Total channels:', channelCount)
+                          console.log('User role:', club.user_role)
+                          console.log('Total channels:', club.channel_count)
                         }}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${activeSection === `club-${club.id}`
                           ? "bg-blue-50 text-blue-600"
@@ -177,7 +198,6 @@ const Dashboard = () => {
                 <div className="space-y-1">
                   {events.map((event: any) => {
                     // Log event data to console
-                    const channelCount = 2 // Will be replaced with real count from API
                     console.log('Event:', {
                       id: event.id,
                       title: event.title,
@@ -186,8 +206,10 @@ const Dashboard = () => {
                       club_id: event.club_id,
                       club_name: event.club_name,
                       sponsor_name: event.sponsor_name,
-                      created_at: event.created_at,
-                      channels: channelCount
+                      user_role: event.user_role,
+                      participant_count: event.participant_count,
+                      channel_count: event.channel_count,
+                      created_at: event.created_at
                     })
 
                     return (
@@ -195,10 +217,10 @@ const Dashboard = () => {
                         key={event.id}
                         onClick={() => {
                           setActiveSection(`event-${event.id}`)
-                          setSelectedChannel('general') // Auto-select first channel
+                          setSelectedChannel(null) // Reset, will be set by useEffect
                           console.log('Clicked event:', event.id, event.title)
-                          console.log('Auto-selected channel: general')
-                          console.log('Total channels:', channelCount)
+                          console.log('User role:', event.user_role)
+                          console.log('Total channels:', event.channel_count)
                         }}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${activeSection === `event-${event.id}`
                           ? "bg-blue-50 text-blue-600"
@@ -288,37 +310,38 @@ const Dashboard = () => {
 
           {/* Channels List */}
           <nav className="flex-1 p-3 overflow-y-auto">
-            <div className="space-y-1">
-              {/* General Channel (default) */}
-              <button
-                onClick={() => {
-                  setSelectedChannel('general')
-                  console.log('Selected channel: general')
-                }}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition ${selectedChannel === 'general'
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-700 hover:bg-gray-200"
-                  }`}
-              >
-                <span className="text-gray-500">#</span>
-                <span className="text-sm font-medium">general</span>
-              </button>
-
-              {/* Announcements Channel */}
-              <button
-                onClick={() => {
-                  setSelectedChannel('announcements')
-                  console.log('Selected channel: announcements')
-                }}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition ${selectedChannel === 'announcements'
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-700 hover:bg-gray-200"
-                  }`}
-              >
-                <span className="text-gray-500">#</span>
-                <span className="text-sm font-medium">announcements</span>
-              </button>
-            </div>
+            {isChannelsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : channels && channels.length > 0 ? (
+              <div className="space-y-1">
+                {channels.map((channel: any) => (
+                  <button
+                    key={channel.id}
+                    onClick={() => {
+                      setSelectedChannel(channel.id)
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition ${selectedChannel === channel.id
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-700 hover:bg-gray-200"
+                      }`}
+                  >
+                    <span className="text-gray-500">#</span>
+                    <span className="text-sm font-medium">{channel.name}</span>
+                    {channel.visibility !== 'public' && (
+                      <span className="ml-auto text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
+                        {channel.visibility}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500 text-sm">
+                No channels available
+              </div>
+            )}
           </nav>
         </aside>
       )}
@@ -498,10 +521,17 @@ const Dashboard = () => {
               <div className="px-6 py-4 border-b border-gray-200 bg-white">
                 <div className="flex items-center gap-2">
                   <span className="text-gray-500 text-xl">#</span>
-                  <h2 className="text-xl font-semibold text-gray-900">{selectedChannel}</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    {channels?.find((ch: any) => ch.id === selectedChannel)?.name || 'Channel'}
+                  </h2>
+                  {channels?.find((ch: any) => ch.id === selectedChannel)?.visibility !== 'public' && (
+                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">
+                      {channels?.find((ch: any) => ch.id === selectedChannel)?.visibility}
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-gray-500 mt-1">
-                  {selectedChannel === 'general' ? 'General discussion for everyone' : 'Important announcements and updates'}
+                  {channels?.find((ch: any) => ch.id === selectedChannel)?.description || 'No description'}
                 </p>
               </div>
 

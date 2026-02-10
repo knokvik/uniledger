@@ -3,11 +3,18 @@
  */
 export const requireAuth = (req, res, next) => {
   if (!req.session.userId) {
-    return res.status(401).json({ 
-      success: false, 
-      message: 'Authentication required' 
+    return res.status(401).json({
+      success: false,
+      message: 'Authentication required'
     })
   }
+
+  // Set req.user for use in routes
+  req.user = {
+    id: req.session.userId,
+    email: req.session.userEmail
+  }
+
   next()
 }
 

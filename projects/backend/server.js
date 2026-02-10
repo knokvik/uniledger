@@ -7,6 +7,10 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import authRoutes from './routes/auth.js'
 import dashboardRoutes from './routes/dashboard.js'
+import channelsRoutes from './routes/channels.js'
+import membersRoutes from './routes/members.js'
+import clubsRoutes from './routes/clubs.js'
+import eventsRoutes from './routes/events.js'
 
 dotenv.config()
 
@@ -42,6 +46,10 @@ app.use(session({
 // Routes
 app.use('/api/auth', authRoutes)
 app.use('/api/dashboard', dashboardRoutes)
+app.use('/api/channels', channelsRoutes)
+app.use('/api/members', membersRoutes)
+app.use('/api/clubs', clubsRoutes)
+app.use('/api/events', eventsRoutes)
 
 // Test page
 app.get('/test', (req, res) => {
@@ -69,6 +77,22 @@ app.get('/', (req, res) => {
       },
       dashboard: {
         getData: 'GET /api/dashboard'
+      },
+      channels: {
+        getChannels: 'GET /api/channels/:type/:id (type: club|event)'
+      },
+      members: {
+        getMembers: 'GET /api/members/:type/:id (type: club|event)'
+      },
+      clubs: {
+        create: 'POST /api/clubs',
+        get: 'GET /api/clubs/:id',
+        update: 'PUT /api/clubs/:id'
+      },
+      events: {
+        create: 'POST /api/events',
+        get: 'GET /api/events/:id',
+        update: 'PUT /api/events/:id'
       }
     }
   })
