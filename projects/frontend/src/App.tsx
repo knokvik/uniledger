@@ -1,7 +1,26 @@
 import { SupportedWallet, WalletId, WalletManager, WalletProvider } from '@txnlab/use-wallet-react'
 import { SnackbarProvider } from 'notistack'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { Provider } from 'react-redux'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { store } from './store/store'
 import Home from './Home'
+import Login from './components/Login'
+import Register from './components/Register'
+import ProtectedRoute from './components/ProtectedRoute'
+import AuthProvider from './components/AuthProvider'
 import { getAlgodConfigFromViteEnvironment, getKmdConfigFromViteEnvironment } from './utils/network/getAlgoClientConfigs'
+import Dashboard from './components/Dashboard'
+
+// Create a client for React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+})
 
 let supportedWallets: SupportedWallet[]
 if (import.meta.env.VITE_ALGOD_NETWORK === 'localnet') {
@@ -48,10 +67,31 @@ export default function App() {
   })
 
   return (
-    <SnackbarProvider maxSnack={3}>
-      <WalletProvider manager={walletManager}>
-        <Home />
-      </WalletProvider>
-    </SnackbarProvider>
+    <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
+        <SnackbarProvider maxSnack={3}>
+          <WalletProvider manager={walletManager}>
+            <Router>
+              <AuthProvider>
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route
+                    path="/"
+                    element={
+                      <ProtectedRoute>
+                        <Dashboard />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </AuthProvider>
+            </Router>
+          </WalletProvider>
+        </SnackbarProvider>
+      </QueryClientProvider>
+    </Provider>
   )
 }
+
