@@ -16,16 +16,16 @@ router.post('/signup', async (req, res) => {
 
     // Validation
     if (!email || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email and password are required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Email and password are required'
       })
     }
 
     if (password.length < 6) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Password must be at least 6 characters long' 
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
       })
     }
 
@@ -37,9 +37,9 @@ router.post('/signup', async (req, res) => {
       .single()
 
     if (existingUser) {
-      return res.status(409).json({ 
-        success: false, 
-        message: 'User already exists with this email' 
+      return res.status(409).json({
+        success: false,
+        message: 'User already exists with this email'
       })
     }
 
@@ -64,14 +64,14 @@ router.post('/signup', async (req, res) => {
       console.error('Supabase error:', error)
       // Check if it's a table not found error
       if (error.code === 'PGRST116' || error.message.includes('relation') || error.message.includes('does not exist')) {
-        return res.status(500).json({ 
-          success: false, 
+        return res.status(500).json({
+          success: false,
           message: 'Database not set up. Please create the users table in Supabase using setup.sql',
           error: 'Users table does not exist'
         })
       }
-      return res.status(500).json({ 
-        success: false, 
+      return res.status(500).json({
+        success: false,
         message: 'Error creating user',
         error: error.message
       })
@@ -100,8 +100,8 @@ router.post('/signup', async (req, res) => {
     })
   } catch (error) {
     console.error('Signup error:', error)
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Server error during signup',
       error: error.message
     })
@@ -119,9 +119,9 @@ router.post('/login', async (req, res) => {
 
     // Validation
     if (!email || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email and password are required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Email and password are required'
       })
     }
 
@@ -136,30 +136,30 @@ router.post('/login', async (req, res) => {
       console.error('Supabase error during login:', error)
       // Check if it's a table not found error
       if (error.code === 'PGRST116' || error.message.includes('relation') || error.message.includes('does not exist')) {
-        return res.status(500).json({ 
-          success: false, 
+        return res.status(500).json({
+          success: false,
           message: 'Database not set up. Please run the setup.sql script in Supabase.',
           error: 'Users table does not exist'
         })
       }
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid email or password' 
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
       })
     }
 
     if (!user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid email or password' 
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
       })
     }
 
     // Check if user has a password set
     if (!user.password) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid email or password' 
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
       })
     }
 
@@ -167,9 +167,9 @@ router.post('/login', async (req, res) => {
     const isPasswordValid = await bcrypt.compare(password, user.password)
 
     if (!isPasswordValid) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid email or password' 
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
       })
     }
 
@@ -202,8 +202,8 @@ router.post('/login', async (req, res) => {
     })
   } catch (error) {
     console.error('Login error:', error)
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Server error during login',
       error: error.message
     })
@@ -218,18 +218,18 @@ router.post('/login', async (req, res) => {
 router.post('/logout', (req, res) => {
   req.session.destroy((err) => {
     if (err) {
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Error logging out' 
+      return res.status(500).json({
+        success: false,
+        message: 'Error logging out'
       })
     }
 
     res.clearCookie('userId')
     res.clearCookie('connect.sid') // Session cookie
 
-    res.json({ 
-      success: true, 
-      message: 'Logged out successfully' 
+    res.json({
+      success: true,
+      message: 'Logged out successfully'
     })
   })
 })
@@ -242,22 +242,22 @@ router.post('/logout', (req, res) => {
 router.get('/me', async (req, res) => {
   try {
     if (!req.session.userId) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Not authenticated' 
+      return res.status(401).json({
+        success: false,
+        message: 'Not authenticated'
       })
     }
 
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, email, name, created_at')
+      .select('id, email, name, avatar_url, created_at')
       .eq('id', req.session.userId)
       .single()
 
     if (error || !user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'User not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
       })
     }
 
@@ -267,8 +267,8 @@ router.get('/me', async (req, res) => {
     })
   } catch (error) {
     console.error('Get user error:', error)
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Server error',
       error: error.message
     })

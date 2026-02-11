@@ -13,6 +13,7 @@ import clubsRoutes from './routes/clubs.js'
 import eventsRoutes from './routes/events.js'
 import messagesRoutes from './routes/messages.js'
 import searchRoutes from './routes/search.js'
+import profileRoutes from './routes/profile.js'
 
 dotenv.config()
 
@@ -54,6 +55,7 @@ app.use('/api/clubs', clubsRoutes)
 app.use('/api/events', eventsRoutes)
 app.use('/api/messages', messagesRoutes)
 app.use('/api/search', searchRoutes)
+app.use('/api/profile', profileRoutes)
 
 // Test page
 app.get('/test', (req, res) => {
