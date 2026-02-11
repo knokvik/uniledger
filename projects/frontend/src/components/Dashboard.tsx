@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { useWallet, WalletId } from "@txnlab/use-wallet-react"
 import { useAuth } from "../hooks/useAuth"
 import { useDashboardData } from "../hooks/useDashboard"
 import { useChannels } from "../hooks/useChannels"
-
+import { useManageChannels } from "../hooks/useManageChannels"
+import { useMessages } from "../hooks/useMessages"
 import ThreeDotLoader from "./ThreeDotLoader"
-
+import CreateEntityModal from "./CreateEntityModal"
+import EditEntityModal from "./EditEntityModal"
 const Dashboard = () => {
   const { activeAddress, wallets } = useWallet()
   const { logout } = useAuth()
@@ -13,6 +15,86 @@ const Dashboard = () => {
   const [activeSection, setActiveSection] = useState("dashboard")
   const [showWalletMenu, setShowWalletMenu] = useState(false)
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [createType, setCreateType] = useState<'club' | 'event'>('club')
+
+  const openCreateModal = (type: 'club' | 'event') => {
+    setCreateType(type)
+    setShowCreateModal(true)
+  }
+
+  // Edit Modal State
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editType, setEditType] = useState<'club' | 'event'>('club')
+  const [editEntity, setEditEntity] = useState<any>(null)
+
+  const openEditModal = (entity: any, type: 'club' | 'event') => {
+    setEditEntity(entity)
+    setEditType(type)
+    setShowEditModal(true)
+  }
+
+  const { createChannel, deleteChannel } = useManageChannels()
+
+  // Message Logic
+  const { messages, isLoading: isMessagesLoading, sendMessage, error: messagesError } = useMessages(selectedChannel)
+  const [messagesInput, setMessagesInput] = useState('')
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!messagesInput.trim() || !selectedChannel) return
+    try {
+      await sendMessage.mutateAsync({ channelId: selectedChannel, content: messagesInput })
+      setMessagesInput('')
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handleCreateChannel = async () => {
+    const isClub = activeSection.startsWith('club-')
+    const type = isClub ? 'club' : 'event'
+    const id = activeSection.replace(isClub ? 'club-' : 'event-', '')
+
+    // Check if valid context
+    if (!id) return
+
+    const name = window.prompt("Enter channel name:")
+    if (!name) return
+
+    const visibility = window.prompt("Visibility (public, volunteer, owner):", "public")
+    if (!visibility) return
+
+    try {
+      await createChannel.mutateAsync({
+        name,
+        description: '',
+        visibility,
+        type,
+        type_id: id
+      })
+    } catch (error) {
+      console.error("Failed to create channel:", error)
+      alert("Failed to create channel")
+    }
+  }
+
+  const handleDeleteChannel = async (e: React.MouseEvent, channelId: string) => {
+    e.stopPropagation()
+    if (!window.confirm("Are you sure you want to delete this channel?")) return
+
+    try {
+      await deleteChannel.mutateAsync(channelId)
+    } catch (error) {
+      console.error("Failed to delete channel:", error)
+      alert("Failed to delete channel")
+    }
+  }
 
   // Fetch dashboard data (clubs and events)
   const { data: dashboardData, isLoading: isDashboardLoading, error: dashboardError } = useDashboardData()
@@ -135,9 +217,18 @@ const Dashboard = () => {
           {/* My Clubs Section */}
           {!isDashboardLoading && (
             <div className="mb-6">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-3">
-                My Clubs {clubs.length > 0 && `(${clubs.length})`}
-              </p>
+              <div className="flex items-center justify-between px-4 mb-3">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  My Clubs {clubs.length > 0 && `(${clubs.length})`}
+                </p>
+                <button
+                  onClick={() => openCreateModal('club')}
+                  className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition"
+                  title="Create New Club"
+                >
+                  <span className="text-xl leading-none pb-1">+</span>
+                </button>
+              </div>
               {clubs.length > 0 ? (
                 <div className="space-y-1">
                   {clubs.map((club: any) => {
@@ -193,9 +284,18 @@ const Dashboard = () => {
           {/* My Events Section */}
           {!isDashboardLoading && (
             <div className="mb-6">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-3">
-                My Events {events.length > 0 && `(${events.length})`}
-              </p>
+              <div className="flex items-center justify-between px-4 mb-3">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  My Events {events.length > 0 && `(${events.length})`}
+                </p>
+                <button
+                  onClick={() => openCreateModal('event')}
+                  className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition"
+                  title="Create New Event"
+                >
+                  <span className="text-xl leading-none pb-1">+</span>
+                </button>
+              </div>
               {events.length > 0 ? (
                 <div className="space-y-1">
                   {events.map((event: any) => {
@@ -290,25 +390,59 @@ const Dashboard = () => {
       {(activeSection.startsWith('club-') || activeSection.startsWith('event-')) && (
         <aside className="w-60 bg-gray-100 border-r border-gray-200 flex flex-col flex-shrink-0">
           {/* Channel Header */}
-          <div className="p-4 border-b border-gray-200 bg-white">
-            <h3 className="font-semibold text-gray-800 truncate">
-              {(() => {
-                // Get the club or event name
-                if (activeSection.startsWith('club-')) {
-                  const clubId = activeSection.replace('club-', '')
-                  const club = clubs.find((c: any) => c.id === clubId)
-                  return club?.name || 'Club'
-                } else {
-                  const eventId = activeSection.replace('event-', '')
-                  const event = events.find((e: any) => e.id === eventId)
-                  return event?.title || 'Event'
-                }
-              })()}
-            </h3>
-            <p className="text-xs text-gray-500 mt-1">
-              {activeSection.startsWith('club-') ? 'Club channels' : 'Event channels'}
-            </p>
-          </div>
+          {(() => {
+            const isClub = activeSection.startsWith('club-')
+            const id = activeSection.replace(isClub ? 'club-' : 'event-', '')
+            const item = isClub ? clubs.find((c: any) => c.id === id) : events.find((e: any) => e.id === id)
+            const name = isClub ? item?.name : item?.title
+            const banner = item?.banner_url
+
+            if (banner) {
+              return (
+                <div className="relative h-28 bg-cover bg-center shrink-0 group" style={{ backgroundImage: `url(${banner})` }}>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-4">
+                    <div className="flex items-end justify-between text-white w-full">
+                      <div className="min-w-0 pr-2 flex-1">
+                        <h3 className="font-bold text-lg leading-tight truncate drop-shadow-md text-white">{name}</h3>
+                        <p className="text-[10px] font-medium text-gray-300 uppercase tracking-wide mt-0.5">
+                          {isClub ? 'Club' : 'Event'} Channels
+                        </p>
+                      </div>
+                      {item?.user_role === 'owner' && (
+                        <button
+                          onClick={() => openEditModal(item, isClub ? 'club' : 'event')}
+                          className="p-1.5 bg-black/20 hover:bg-black/40 backdrop-blur-md rounded text-white transition opacity-0 group-hover:opacity-100"
+                          title="Edit Settings"
+                        >
+                          <span className="text-sm leading-none">⚙️</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+
+            return (
+              <div className="p-4 border-b border-gray-200 bg-white flex items-start justify-between shrink-0">
+                <div className="min-w-0 pr-2 flex-1">
+                  <h3 className="font-semibold text-gray-800 truncate">{name || (isClub ? 'Club' : 'Event')}</h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {isClub ? 'Club' : 'Event'} channels
+                  </p>
+                </div>
+                {item?.user_role === 'owner' && (
+                  <button
+                    onClick={() => openEditModal(item, isClub ? 'club' : 'event')}
+                    className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600 transition"
+                    title="Edit Settings"
+                  >
+                    <span className="text-lg leading-none">⚙️</span>
+                  </button>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Channels List */}
           <nav className="flex-1 p-3 overflow-y-auto">
@@ -316,35 +450,91 @@ const Dashboard = () => {
               <div className="flex items-center justify-center py-8">
                 <ThreeDotLoader />
               </div>
-            ) : channels && channels.length > 0 ? (
-              <div className="space-y-1">
-                {channels.map((channel: any) => (
-                  <button
-                    key={channel.id}
-                    onClick={() => {
-                      setSelectedChannel(channel.id)
-                    }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition ${selectedChannel === channel.id
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-700 hover:bg-gray-200"
-                      }`}
-                  >
-                    <span className="text-gray-500">#</span>
-                    <span className="text-sm font-medium">{channel.name}</span>
-                    {channel.visibility !== 'public' && (
-                      <span className="ml-auto text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
-                        {channel.visibility}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
             ) : (
-              <div className="text-center py-8 text-gray-500 text-sm">
-                No channels available
-              </div>
+              <>
+                <div className="flex items-center justify-between px-2 mb-2 group">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Text Channels</span>
+                  {(() => {
+                    const isClub = activeSection.startsWith('club-')
+                    const id = activeSection.replace(isClub ? 'club-' : 'event-', '')
+                    const item = isClub ? clubs.find((c: any) => c.id === id) : events.find((e: any) => e.id === id)
+                    if (item?.user_role === 'owner') {
+                      return <button onClick={handleCreateChannel} className="text-gray-400 hover:text-gray-600 font-bold text-lg leading-none transition-colors" title="Create Channel">+</button>
+                    }
+                    return null
+                  })()}
+                </div>
+
+                {channels && channels.length > 0 ? (
+                  <div className="space-y-1">
+                    {channels.map((channel: any) => (
+                      <button
+                        key={channel.id}
+                        onClick={() => setSelectedChannel(channel.id)}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition group relative ${selectedChannel === channel.id
+                          ? "bg-white text-gray-900 shadow-sm"
+                          : "text-gray-700 hover:bg-gray-200"
+                          }`}
+                      >
+                        <span className="text-gray-500 text-lg">#</span>
+                        <span className="text-sm font-medium truncate flex-1 text-left">{channel.name}</span>
+
+                        {channel.visibility !== 'public' && (
+                          <span className="text-[10px] uppercase font-bold bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded ml-2">
+                            {channel.visibility === 'volunteer' ? 'Vol' : 'Own'}
+                          </span>
+                        )}
+
+                        {(() => {
+                          const isClub = activeSection.startsWith('club-')
+                          const id = activeSection.replace(isClub ? 'club-' : 'event-', '')
+                          const item = isClub ? clubs.find((c: any) => c.id === id) : events.find((e: any) => e.id === id)
+                          if (item?.user_role === 'owner') {
+                            return (
+                              <span
+                                onClick={(e) => handleDeleteChannel(e, channel.id)}
+                                className="ml-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                title="Delete Channel"
+                              >
+                                🗑
+                              </span>
+                            )
+                          }
+                          return null
+                        })()}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-400 text-xs italic">
+                    No channels available
+                  </div>
+                )}
+              </>
             )}
           </nav>
+
+          {/* Settings Tab (Owner Only) */}
+          {(() => {
+            const isClub = activeSection.startsWith('club-')
+            const id = activeSection.replace(isClub ? 'club-' : 'event-', '')
+            const item = isClub ? clubs.find((c: any) => c.id === id) : events.find((e: any) => e.id === id)
+
+            if (item?.user_role === 'owner') {
+              return (
+                <div className="p-3 border-t border-gray-200 bg-gray-50 mt-auto">
+                  <button
+                    onClick={() => openEditModal(item, isClub ? 'club' : 'event')}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg shadow-sm transition group"
+                  >
+                    <span className="group-hover:rotate-45 transition-transform duration-300">⚙️</span>
+                    <span className="font-semibold text-sm">Settings</span>
+                  </button>
+                </div>
+              )
+            }
+            return null
+          })()}
         </aside>
       )}
 
@@ -353,17 +543,43 @@ const Dashboard = () => {
         {/* Top Bar */}
         <header className="bg-white border-b border-gray-200 px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex-1 max-w-xl">
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  🔍
-                </span>
-                <input
-                  type="text"
-                  placeholder="Search events, clubs, or transactions..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+            <div className="flex-1">
+              {!(activeSection.startsWith('club-') || activeSection.startsWith('event-')) ? (
+                <div className="relative max-w-xl">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    🔍
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search events, clubs, or transactions..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              ) : (
+                selectedChannel && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl text-gray-400 font-light">#</span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h1 className="text-xl font-bold text-gray-900 leading-none">
+                          {channels?.find((ch: any) => ch.id === selectedChannel)?.name}
+                        </h1>
+                        {channels?.find((ch: any) => ch.id === selectedChannel)?.visibility !== 'public' && (
+                          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${channels?.find((ch: any) => ch.id === selectedChannel)?.visibility === 'volunteer'
+                            ? 'bg-purple-100 text-purple-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                            {channels?.find((ch: any) => ch.id === selectedChannel)?.visibility}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500 truncate max-w-2xl mt-1">
+                        {channels?.find((ch: any) => ch.id === selectedChannel)?.description}
+                      </p>
+                    </div>
+                  </div>
+                )
+              )}
             </div>
             <div className="flex items-center gap-4">
               <button className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">
@@ -519,67 +735,89 @@ const Dashboard = () => {
           {/* Show Chat if channel is selected */}
           {selectedChannel ? (
             <div className="h-full flex flex-col">
-              {/* Channel Header */}
-              <div className="px-6 py-4 border-b border-gray-200 bg-white">
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-500 text-xl">#</span>
-                  <h2 className="text-xl font-semibold text-gray-900">
-                    {channels?.find((ch: any) => ch.id === selectedChannel)?.name || 'Channel'}
-                  </h2>
-                  {channels?.find((ch: any) => ch.id === selectedChannel)?.visibility !== 'public' && (
-                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">
-                      {channels?.find((ch: any) => ch.id === selectedChannel)?.visibility}
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-gray-500 mt-1">
-                  {channels?.find((ch: any) => ch.id === selectedChannel)?.description || 'No description'}
-                </p>
-              </div>
 
               {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
-                <div className="space-y-4">
-                  {/* Welcome Message */}
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <span className="text-3xl">#</span>
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      Welcome to #{selectedChannel}!
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      This is the beginning of the #{selectedChannel} channel.
-                    </p>
+              <div className="flex-1 overflow-y-auto p-6 bg-gray-50 flex flex-col custom-scrollbar">
+                {isMessagesLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <ThreeDotLoader />
                   </div>
-
-                  {/* Sample Messages (will be replaced with real data) */}
-                  <div className="flex gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-white font-semibold text-sm">U</span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-baseline gap-2 mb-1">
-                        <span className="font-semibold text-gray-900">User</span>
-                        <span className="text-xs text-gray-500">Today at 12:00 PM</span>
+                ) : messagesError ? (
+                  <div className="flex items-center justify-center h-full text-red-500 flex-col gap-2">
+                    <p className="font-medium">Failed to load messages</p>
+                    <p className="text-sm opacity-75">{(messagesError as any).response?.data?.error || 'Unknown error'}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Welcome Message */}
+                    <div className="text-center py-8 border-b border-gray-200 border-dashed pb-8 mb-4">
+                      <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-3xl text-blue-600 font-light">#</span>
                       </div>
-                      <p className="text-gray-700">Welcome to the channel! 👋</p>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                        Welcome to #{channels?.find((ch: any) => ch.id === selectedChannel)?.name || selectedChannel}!
+                      </h3>
+                      <p className="text-sm text-gray-500 max-w-md mx-auto">
+                        This is the start of the <span className="font-medium">#{channels?.find((ch: any) => ch.id === selectedChannel)?.name}</span> channel history.
+                      </p>
                     </div>
+
+                    {/* Messages List */}
+                    {messages?.map((msg: any) => (
+                      <div key={msg.id} className="flex gap-4 group hover:bg-gray-100/50 p-2 -mx-2 rounded-lg transition-colors">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm text-white font-bold select-none">
+                          {msg.users?.avatar_url ? (
+                            <img src={msg.users.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            <span>{(msg.users?.name || 'U')[0].toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-baseline gap-2 mb-1">
+                            <span className="font-semibold text-gray-900 hover:underline cursor-pointer">{msg.users?.name || 'Unknown User'}</span>
+                            <span className="text-xs text-gray-400 group-hover:text-gray-500 transition-colors">
+                              {new Date(msg.created_at).toLocaleDateString() === new Date().toLocaleDateString()
+                                ? `Today at ${new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                : new Date(msg.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                              }
+                            </span>
+                          </div>
+                          <p className="text-gray-800 whitespace-pre-wrap leading-relaxed break-words">{msg.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={messagesEndRef} />
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Message Input */}
               <div className="p-4 bg-white border-t border-gray-200">
-                <div className="flex gap-3">
+                <form onSubmit={handleSendMessage} className="flex gap-3 items-center bg-gray-50 p-2 rounded-xl border border-gray-200 focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all">
+                  <button type="button" className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200 transition">
+                    <span className="text-xl leading-none">+</span>
+                  </button>
                   <input
                     type="text"
-                    placeholder={`Message #${selectedChannel}`}
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={messagesInput}
+                    onChange={(e) => setMessagesInput(e.target.value)}
+                    placeholder={`Message #${channels?.find((ch: any) => ch.id === selectedChannel)?.name || 'channel'}`}
+                    className="flex-1 bg-transparent px-2 py-2 focus:outline-none text-gray-800 placeholder-gray-400"
+                    disabled={isMessagesLoading}
                   />
-                  <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
-                    Send
+                  <button
+                    type="submit"
+                    disabled={!messagesInput.trim() || isMessagesLoading}
+                    className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 transform rotate-[-45deg] translate-x-0.5 -translate-y-0.5">
+                      <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+                    </svg>
                   </button>
+                </form>
+                <div className="text-xs text-gray-400 mt-2 px-2 flex justify-between">
+                  <span>Markdown supported (bold, italic)</span>
+                  {messagesInput.length > 0 && <span>{messagesInput.length} chars</span>}
                 </div>
               </div>
             </div>
@@ -957,6 +1195,23 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Create Entity Modal */}
+      <CreateEntityModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        type={createType}
+        userClubs={clubs}
+      />
+
+      {/* Edit Entity Modal */}
+      <EditEntityModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        type={editType}
+        entity={editEntity}
+        userClubs={clubs}
+      />
     </div>
   )
 }

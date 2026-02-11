@@ -11,7 +11,7 @@ const router = express.Router()
 router.post('/', requireAuth, async (req, res) => {
     try {
         const userId = req.user.id
-        const { name, description, banner_url, logo_url } = req.body
+        const { name, description, banner_url, logo_url, channels } = req.body
 
         if (!name) {
             return res.status(400).json({
@@ -52,15 +52,19 @@ router.post('/', requireAuth, async (req, res) => {
             throw new Error(`Failed to add owner to club: ${memberError.message}`)
         }
 
-        // Create default channels
-        const defaultChannels = [
-            { name: 'general', description: 'General discussion', visibility: 'public' },
-            { name: 'announcements', description: 'Important announcements', visibility: 'public' },
-            { name: 'volunteers', description: 'Volunteer coordination', visibility: 'volunteer' }
-        ]
+        // Create channels (custom or default)
+        const channelsToCreate = (channels && Array.isArray(channels) && channels.length > 0)
+            ? channels
+            : [
+                { name: 'general', description: 'General discussion', visibility: 'public' },
+                { name: 'announcements', description: 'Important announcements', visibility: 'public' },
+                { name: 'volunteers', description: 'Volunteer coordination', visibility: 'volunteer' }
+            ]
 
-        const channelsToInsert = defaultChannels.map(ch => ({
-            ...ch,
+        const channelsToInsert = channelsToCreate.map(ch => ({
+            name: ch.name || 'channel',
+            description: ch.description || '',
+            visibility: ch.visibility || 'public',
             club_id: club.id,
             created_by: userId
         }))

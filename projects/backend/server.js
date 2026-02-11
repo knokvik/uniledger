@@ -11,6 +11,7 @@ import channelsRoutes from './routes/channels.js'
 import membersRoutes from './routes/members.js'
 import clubsRoutes from './routes/clubs.js'
 import eventsRoutes from './routes/events.js'
+import messagesRoutes from './routes/messages.js'
 
 dotenv.config()
 
@@ -50,6 +51,7 @@ app.use('/api/channels', channelsRoutes)
 app.use('/api/members', membersRoutes)
 app.use('/api/clubs', clubsRoutes)
 app.use('/api/events', eventsRoutes)
+app.use('/api/messages', messagesRoutes)
 
 // Test page
 app.get('/test', (req, res) => {
