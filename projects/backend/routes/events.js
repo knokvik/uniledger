@@ -11,7 +11,7 @@ const router = express.Router()
 router.post('/', requireAuth, async (req, res) => {
     try {
         const userId = req.user.id
-        const { title, description, banner_url, event_date, location, club_id, sponsor_name, channels } = req.body
+        const { title, description, banner_url, event_date, location, club_id, sponsor_name, channels, wallet_address, ticket_price } = req.body
 
         if (!title) {
             return res.status(400).json({
@@ -31,6 +31,8 @@ router.post('/', requireAuth, async (req, res) => {
                 location,
                 club_id,
                 sponsor_name,
+                wallet_address,
+                ticket_price,
                 owner_id: userId
             })
             .select()
@@ -140,7 +142,7 @@ router.put('/:id', requireAuth, async (req, res) => {
     try {
         const userId = req.user.id
         const { id } = req.params
-        const { title, description, banner_url, event_date, location, club_id, sponsor_name } = req.body
+        const { title, description, banner_url, event_date, location, club_id, sponsor_name, wallet_address, ticket_price } = req.body
 
         // Check if user is owner
         const { data: membership } = await supabase
@@ -168,6 +170,8 @@ router.put('/:id', requireAuth, async (req, res) => {
                 location,
                 club_id,
                 sponsor_name,
+                wallet_address,
+                ticket_price,
                 updated_at: new Date().toISOString()
             })
             .eq('id', id)
