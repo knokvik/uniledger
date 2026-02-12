@@ -131,6 +131,23 @@ export const processEventRequest = async (id, action, adminId) => {
 };
 
 /**
+ * Get all users with pagination
+ */
+export const getAllUsers = async (page = 1, limit = 10) => {
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    const { data, error, count } = await supabase
+        .from('users')
+        .select('*', { count: 'exact' })
+        .range(from, to)
+        .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return { data, count, page, limit };
+};
+
+/**
  * Get all clubs with pagination and optional status filter
  */
 export const getAllClubs = async (page = 1, limit = 10, status = null) => {
@@ -150,7 +167,23 @@ export const getAllClubs = async (page = 1, limit = 10, status = null) => {
     const { data, error, count } = await query;
 
     if (error) throw error;
-    return { data, count, page, limit };
+
+    // Fetch member counts for each club separately
+    const dataWithCounts = await Promise.all(
+        (data || []).map(async (club) => {
+            const { count: memberCount } = await supabase
+                .from('club_members')
+                .select('*', { count: 'exact', head: true })
+                .eq('club_id', club.id);
+
+            return {
+                ...club,
+                member_count: memberCount || 0
+            };
+        })
+    );
+
+    return { data: dataWithCounts, count, page, limit };
 };
 
 /**
@@ -173,7 +206,23 @@ export const getAllEvents = async (page = 1, limit = 10, status = null) => {
     const { data, error, count } = await query;
 
     if (error) throw error;
-    return { data, count, page, limit };
+
+    // Fetch participant counts for each event separately
+    const dataWithCounts = await Promise.all(
+        data.map(async (event) => {
+            const { count: participantCount } = await supabase
+                .from('event_participants')
+                .select('*', { count: 'exact', head: true })
+                .eq('event_id', event.id);
+
+            return {
+                ...event,
+                participant_count: participantCount || 0
+            };
+        })
+    );
+
+    return { data: dataWithCounts, count, page, limit };
 };
 
 /**
@@ -236,4 +285,56 @@ export const updateEventStatus = async (eventId, status) => {
     }
 
     return data;
+};
+
+/**
+ * Get detailed club view
+ */
+export const getClubDetails = async (id) => {
+    const { data, error } = await supabase
+        .from('clubs')
+        .select(`
+            *,
+            owner:users(id, name, email),
+            members:club_members(
+                joined_at,
+                user:users(id, name, email)
+            ),
+            channels(id, name, type),
+            events(id, title, start_date, status)
+        `)
+        .eq('id', id)
+        .single();
+
+    if (error) throw error;
+    return data;
+};
+
+/**
+ * Get detailed event view
+ */
+export const getEventDetails = async (id) => {
+    const { data, error } = await supabase
+        .from('events')
+        .select(`
+            *,
+            owner:users(id, name, email),
+            club:clubs(name),
+            participants:event_participants(
+                status,
+                user:users(id, name, email)
+            )
+        `)
+        .eq('id', id)
+        .single();
+
+    if (error) throw error;
+
+    // Fetch aggregated payments or detailed if needed
+    const { data: payments } = await supabase
+        .from('event_payments')
+        .select('*')
+        .eq('event_id', id);
+
+    return { ...data, payments: payments || [] };
 };

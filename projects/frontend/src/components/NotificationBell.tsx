@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -19,7 +21,6 @@ const fetchNotifications = async () => {
     const response = await axios.get(`${API_URL}/api/notifications`, {
         withCredentials: true
     });
-    // Return default structure if successful, or throw
     if (response.data.success) {
         return {
             notifications: response.data.notifications as Notification[],
@@ -31,71 +32,164 @@ const fetchNotifications = async () => {
 
 const NotificationBell: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
+    const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
 
-    // Use React Query for notifications
     const { data, isLoading } = useQuery({
         queryKey: ['notifications'],
         queryFn: fetchNotifications,
-        refetchInterval: 30000, // Poll every 30 seconds
+        refetchInterval: 30000,
         staleTime: 10000,
     });
 
     const notifications = data?.notifications || [];
     const unreadCount = data?.unreadCount || 0;
 
-    const markAsRead = async (notificationId: string) => {
-        try {
+    // Mark as read mutation
+    const markAsReadMutation = useMutation({
+        mutationFn: async (notificationId: string) => {
             await axios.put(
                 `${API_URL}/api/notifications/${notificationId}/read`,
                 {},
                 { withCredentials: true }
             );
-            queryClient.invalidateQueries({ queryKey: ['notifications'] });
-        } catch (error) {
-            console.error('Error marking notification as read:', error);
-        }
-    };
+        },
+        onMutate: async (notificationId) => {
+            setProcessingIds(prev => new Set(prev).add(notificationId));
 
-    const markAllAsRead = async () => {
-        try {
+            // Optimistic update
+            const previousData = queryClient.getQueryData(['notifications']);
+            queryClient.setQueryData(['notifications'], (old: any) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    notifications: old.notifications.map((n: Notification) =>
+                        n.id === notificationId ? { ...n, is_read: true } : n
+                    ),
+                    unreadCount: Math.max(0, old.unreadCount - 1)
+                };
+            });
+            return { previousData };
+        },
+        onError: (err, notificationId, context) => {
+            queryClient.setQueryData(['notifications'], context?.previousData);
+            toast.error('Failed to mark as read');
+            setProcessingIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(notificationId);
+                return newSet;
+            });
+        },
+        onSuccess: () => {
+            toast.success('Marked as read');
+        },
+        onSettled: (_, __, notificationId) => {
+            setTimeout(() => {
+                queryClient.invalidateQueries({ queryKey: ['notifications'] });
+                setProcessingIds(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(notificationId);
+                    return newSet;
+                });
+            }, 300);
+        }
+    });
+
+    // Delete mutation
+    const deleteMutation = useMutation({
+        mutationFn: async (notificationId: string) => {
+            await axios.delete(
+                `${API_URL}/api/notifications/${notificationId}`,
+                { withCredentials: true }
+            );
+        },
+        onMutate: async (notificationId) => {
+            setProcessingIds(prev => new Set(prev).add(notificationId));
+
+            // Optimistic update
+            const previousData = queryClient.getQueryData(['notifications']);
+            queryClient.setQueryData(['notifications'], (old: any) => {
+                if (!old) return old;
+                const deletedNotif = old.notifications.find((n: Notification) => n.id === notificationId);
+                return {
+                    ...old,
+                    notifications: old.notifications.filter((n: Notification) => n.id !== notificationId),
+                    unreadCount: deletedNotif && !deletedNotif.is_read
+                        ? Math.max(0, old.unreadCount - 1)
+                        : old.unreadCount
+                };
+            });
+            return { previousData };
+        },
+        onError: (err, notificationId, context) => {
+            queryClient.setQueryData(['notifications'], context?.previousData);
+            toast.error('Failed to delete notification');
+            setProcessingIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(notificationId);
+                return newSet;
+            });
+        },
+        onSuccess: () => {
+            toast.success('Notification deleted');
+        },
+        onSettled: (_, __, notificationId) => {
+            setTimeout(() => {
+                queryClient.invalidateQueries({ queryKey: ['notifications'] });
+                setProcessingIds(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(notificationId);
+                    return newSet;
+                });
+            }, 300);
+        }
+    });
+
+    // Mark all as read mutation
+    const markAllAsReadMutation = useMutation({
+        mutationFn: async () => {
             await axios.put(
                 `${API_URL}/api/notifications/read-all`,
                 {},
                 { withCredentials: true }
             );
+        },
+        onMutate: async () => {
+            const previousData = queryClient.getQueryData(['notifications']);
+            queryClient.setQueryData(['notifications'], (old: any) => {
+                if (!old) return old;
+                return {
+                    ...old,
+                    notifications: old.notifications.map((n: Notification) => ({ ...n, is_read: true })),
+                    unreadCount: 0
+                };
+            });
+            return { previousData };
+        },
+        onError: (err, _, context) => {
+            queryClient.setQueryData(['notifications'], context?.previousData);
+            toast.error('Failed to mark all as read');
+        },
+        onSuccess: () => {
+            toast.success('All marked as read');
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
-        } catch (error) {
-            console.error('Error marking all as read:', error);
         }
-    };
-
-    const deleteNotification = async (notificationId: string) => {
-        try {
-            await axios.delete(
-                `${API_URL}/api/notifications/${notificationId}`,
-                { withCredentials: true }
-            );
-            queryClient.invalidateQueries({ queryKey: ['notifications'] });
-        } catch (error) {
-            console.error('Error deleting notification:', error);
-        }
-    };
+    });
 
     const getNotificationIcon = (type: string) => {
         switch (type) {
-            case 'join_request':
-                return '👥';
-            case 'join_accepted':
-                return '✅';
-            case 'join_rejected':
-                return '❌';
-            case 'join_hold':
-                return '⏸️';
-            case 'payment_verified':
-                return '💰';
-            default:
-                return '🔔';
+            case 'join_request': return '👥';
+            case 'join_accepted': return '✅';
+            case 'join_rejected': return '❌';
+            case 'join_hold': return '⏸️';
+            case 'payment_verified': return '💰';
+            case 'request_approved': return '✅';
+            case 'request_rejected': return '❌';
+            case 'status_update': return '🔔';
+            default: return '🔔';
         }
     };
 
@@ -124,13 +218,13 @@ const NotificationBell: React.FC = () => {
             >
                 <span className="text-2xl">🔔</span>
                 {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    <span className="absolute top-1 right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
                         {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                 )}
             </button>
 
-            {/* Dropdown Panel */}
+            {/* Dropdown Panel - Centered below icon */}
             {isOpen && (
                 <>
                     {/* Backdrop */}
@@ -139,18 +233,22 @@ const NotificationBell: React.FC = () => {
                         onClick={() => setIsOpen(false)}
                     ></div>
 
-                    {/* Notification Panel */}
-                    <div className="absolute right-0 top-12 w-96 max-h-[600px] bg-white rounded-lg shadow-2xl border border-gray-200 z-50 overflow-hidden flex flex-col">
+                    {/* Notification Panel - Centered */}
+                    <div
+                        className="absolute top-12 left-1/2 -translate-x-1/2 w-96 max-w-[calc(100vw-2rem)] max-h-[600px] bg-white rounded-lg shadow-2xl border border-gray-200 z-50 overflow-hidden flex flex-col"
+                        style={{ transformOrigin: 'top center' }}
+                    >
                         {/* Header */}
                         <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
                             <div className="flex items-center justify-between mb-2">
                                 <h3 className="text-lg font-bold text-gray-900">Notifications</h3>
                                 {unreadCount > 0 && (
                                     <button
-                                        onClick={markAllAsRead}
-                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                        onClick={() => markAllAsReadMutation.mutate()}
+                                        disabled={markAllAsReadMutation.isPending}
+                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
                                     >
-                                        Mark all as read
+                                        {markAllAsReadMutation.isPending ? 'Marking...' : 'Mark all as read'}
                                     </button>
                                 )}
                             </div>
@@ -176,56 +274,75 @@ const NotificationBell: React.FC = () => {
                                 </div>
                             ) : (
                                 <div className="divide-y divide-gray-100">
-                                    {notifications.map((notification) => (
-                                        <div
-                                            key={notification.id}
-                                            className={`p-4 hover:bg-gray-50 transition ${!notification.is_read ? 'bg-blue-50' : ''
-                                                }`}
-                                        >
-                                            <div className="flex items-start gap-3">
-                                                {/* Icon */}
-                                                <div className="flex-shrink-0 text-2xl">
-                                                    {getNotificationIcon(notification.type)}
-                                                </div>
-
-                                                {/* Content */}
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-start justify-between gap-2">
-                                                        <h4 className="text-sm font-semibold text-gray-900">
-                                                            {notification.title}
-                                                        </h4>
-                                                        {!notification.is_read && (
-                                                            <span className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 mt-1"></span>
-                                                        )}
+                                    {notifications.slice(0, 5).map((notification) => {
+                                        const isProcessing = processingIds.has(notification.id);
+                                        return (
+                                            <div
+                                                key={notification.id}
+                                                className={`p-4 transition-all ${isProcessing ? 'opacity-60 pointer-events-none' : 'hover:bg-gray-50'
+                                                    } ${!notification.is_read ? 'bg-blue-50' : ''}`}
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    {/* Icon */}
+                                                    <div className="flex-shrink-0 text-2xl">
+                                                        {getNotificationIcon(notification.type)}
                                                     </div>
-                                                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                                                        {notification.message}
-                                                    </p>
-                                                    <p className="text-xs text-gray-400 mt-1">
-                                                        {formatTime(notification.created_at)}
-                                                    </p>
 
-                                                    {/* Actions */}
-                                                    <div className="flex items-center gap-3 mt-2">
-                                                        {!notification.is_read && (
+                                                    {/* Content */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <h4 className="text-sm font-semibold text-gray-900">
+                                                                {notification.title}
+                                                            </h4>
+                                                            {!notification.is_read && (
+                                                                <span className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 mt-1"></span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                                                            {notification.message}
+                                                        </p>
+                                                        <p className="text-xs text-gray-400 mt-1">
+                                                            {formatTime(notification.created_at)}
+                                                        </p>
+
+                                                        {/* Actions with Loading States */}
+                                                        <div className="flex items-center gap-3 mt-2">
+                                                            {!notification.is_read && (
+                                                                <button
+                                                                    onClick={() => markAsReadMutation.mutate(notification.id)}
+                                                                    disabled={isProcessing}
+                                                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50 flex items-center gap-1"
+                                                                >
+                                                                    {isProcessing && markAsReadMutation.variables === notification.id ? (
+                                                                        <>
+                                                                            <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                                                            Marking...
+                                                                        </>
+                                                                    ) : (
+                                                                        'Mark as read'
+                                                                    )}
+                                                                </button>
+                                                            )}
                                                             <button
-                                                                onClick={() => markAsRead(notification.id)}
-                                                                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                                                onClick={() => deleteMutation.mutate(notification.id)}
+                                                                disabled={isProcessing}
+                                                                className="text-xs text-red-600 hover:text-red-700 font-medium disabled:opacity-50 flex items-center gap-1"
                                                             >
-                                                                Mark as read
+                                                                {isProcessing && deleteMutation.variables === notification.id ? (
+                                                                    <>
+                                                                        <div className="w-3 h-3 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                                                                        Deleting...
+                                                                    </>
+                                                                ) : (
+                                                                    'Delete'
+                                                                )}
                                                             </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => deleteNotification(notification.id)}
-                                                            className="text-xs text-red-600 hover:text-red-700 font-medium"
-                                                        >
-                                                            Delete
-                                                        </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -236,11 +353,11 @@ const NotificationBell: React.FC = () => {
                                 <button
                                     onClick={() => {
                                         setIsOpen(false);
-                                        // TODO: Navigate to full notifications page
+                                        navigate('/notifications');
                                     }}
                                     className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                                 >
-                                    View all notifications
+                                    View all notifications →
                                 </button>
                             </div>
                         )}

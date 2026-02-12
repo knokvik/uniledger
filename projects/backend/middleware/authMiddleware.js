@@ -79,7 +79,7 @@ export const requireClubRole = (requiredRole, paramName = 'clubId') => {
                 .single();
 
             if (error || !member) {
-                 return res.status(403).json({
+                return res.status(403).json({
                     success: false,
                     message: 'You are not a member of this club'
                 });

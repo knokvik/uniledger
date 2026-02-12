@@ -59,6 +59,17 @@ router.get('/overview', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
+// Manage Users
+router.get('/users', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const result = await adminService.getAllUsers(page, 10);
+        res.json({ success: true, ...result });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error fetching users', details: error.message });
+    }
+});
+
 // Manage Clubs
 // --- Creation Requests ---
 
@@ -121,6 +132,15 @@ router.get('/clubs', requireAuth, requireAdmin, async (req, res) => {
     }
 });
 
+router.get('/clubs/:id', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const result = await adminService.getClubDetails(req.params.id);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error fetching club details', details: error.message });
+    }
+});
+
 router.patch('/clubs/:id/status', requireAuth, requireAdmin, async (req, res) => {
     try {
         const result = await adminService.updateClubStatus(req.params.id, req.body.status);
@@ -139,6 +159,15 @@ router.get('/events', requireAuth, requireAdmin, async (req, res) => {
         res.json({ success: true, ...result });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Error fetching events', details: error.message });
+    }
+});
+
+router.get('/events/:id', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const result = await adminService.getEventDetails(req.params.id);
+        res.json({ success: true, data: result });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error fetching event details', details: error.message });
     }
 });
 
