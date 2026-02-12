@@ -190,6 +190,13 @@ const Login: React.FC = () => {
                         Create an account
                     </Link>
                 </p>
+
+                {/* Admin Link */}
+                <div className="mt-8 text-center pt-8 border-t border-gray-100 dark:border-gray-800">
+                    <Link to="/admin/login" className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                        Admin Portal Access
+                    </Link>
+                </div>
             </div>
         </div>
     );

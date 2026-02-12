@@ -11,6 +11,9 @@ import ProtectedRoute from './components/ProtectedRoute'
 import AuthProvider from './components/AuthProvider'
 import { getAlgodConfigFromViteEnvironment, getKmdConfigFromViteEnvironment } from './utils/network/getAlgoClientConfigs'
 import Dashboard from './components/Dashboard'
+import Profile from './components/Profile'
+import AdminLogin from './components/AdminLogin'
+import AdminDashboard from './components/AdminDashboard'
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -34,6 +37,10 @@ if (import.meta.env.VITE_ALGOD_NETWORK === 'localnet') {
         port: String(kmdConfig.port),
       },
     },
+    { id: WalletId.PERA },
+    { id: WalletId.DEFLY },
+    { id: WalletId.EXODUS },
+    { id: WalletId.LUTE },
   ]
 } else {
   supportedWallets = [
@@ -41,8 +48,6 @@ if (import.meta.env.VITE_ALGOD_NETWORK === 'localnet') {
     { id: WalletId.PERA },
     { id: WalletId.EXODUS },
     { id: WalletId.LUTE },
-    // If you are interested in WalletConnect v2 provider
-    // refer to https://github.com/TxnLab/use-wallet for detailed integration instructions
   ]
 }
 
@@ -76,11 +81,21 @@ export default function App() {
                 <Routes>
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
+                  <Route path="/admin/login" element={<AdminLogin />} />
+                  <Route path="/admin/dashboard" element={<AdminDashboard />} />
                   <Route
                     path="/"
                     element={
                       <ProtectedRoute>
                         <Dashboard />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/profile"
+                    element={
+                      <ProtectedRoute>
+                        <Profile />
                       </ProtectedRoute>
                     }
                   />

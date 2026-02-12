@@ -1,0 +1,93 @@
+import express from 'express';
+import { requireAuth, requireAdmin } from '../middleware/authMiddleware.js';
+import * as adminService from '../services/adminService.js';
+import { supabase } from '../config/supabase.js';
+import bcrypt from 'bcrypt';
+
+const router = express.Router();
+
+// Admin Login
+router.post('/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({ success: false, message: 'Email and password required' });
+        }
+
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', email)
+            .single();
+
+        if (error || !user) {
+            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+
+        // Role Check
+        if (user.role !== 'college_admin') {
+            return res.status(403).json({ success: false, message: 'Access denied. Admin only.' });
+        }
+
+        // Set Session
+        req.session.userId = user.id;
+        req.session.userRole = user.role;
+
+        res.json({
+            success: true,
+            user: { id: user.id, email: user.email, name: user.name, role: user.role }
+        });
+    } catch (error) {
+        console.error('Admin login error:', error);
+        res.status(500).json({ success: false, message: 'Server error', details: error.message });
+    }
+});
+
+// Dashboard Overview
+router.get('/overview', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const stats = await adminService.getSystemOverview();
+        res.json({ success: true, data: stats });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error fetching overview', details: error.message });
+    }
+});
+
+// Manage Clubs
+router.get('/clubs', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const status = req.query.status || null;
+        const result = await adminService.getAllClubs(page, 10, status);
+        res.json({ success: true, ...result });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error fetching clubs', details: error.message });
+    }
+});
+
+router.patch('/clubs/:id/status', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const result = await adminService.updateClubStatus(req.params.id, req.body.status);
+        res.json({ success: true, message: 'Club status updated', data: result });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error updating status', details: error.message });
+    }
+});
+
+// Manage Events
+router.patch('/events/:id/status', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const result = await adminService.updateEventStatus(req.params.id, req.body.status);
+        res.json({ success: true, message: 'Event status updated', data: result });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error updating status', details: error.message });
+    }
+});
+
+export default router;
