@@ -27,7 +27,7 @@ export const useCreateEntity = () => {
         mutationFn: createClub,
         onSuccess: () => {
             // Invalidate dashboard data to refresh list
-            queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+            queryClient.invalidateQueries({ queryKey: ['clubs'] })
             queryClient.invalidateQueries({ queryKey: ['notifications'] })
         }
     })
@@ -36,7 +36,7 @@ export const useCreateEntity = () => {
         mutationFn: createEvent,
         onSuccess: () => {
             // Invalidate dashboard data to refresh list
-            queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+            queryClient.invalidateQueries({ queryKey: ['events'] })
             queryClient.invalidateQueries({ queryKey: ['notifications'] })
         }
     })

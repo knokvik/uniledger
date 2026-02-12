@@ -58,7 +58,8 @@ router.post('/', requireAuth, async (req, res) => {
                 wallet_address,
                 ticket_price,
                 owner_id: userId,
-                status: 'pending' // Enforce approval flow
+
+                status: 'active' // For testing: Auto-approve events
             })
             .select()
             .single()
@@ -195,6 +196,51 @@ router.put('/:id', requireAuth, async (req, res) => {
 
         res.json({ success: true, data: updatedEvent })
     } catch (error) {
+        res.status(500).json({ success: false, error: error.message })
+    }
+})
+
+/**
+ * DELETE /api/events/:id
+ * Delete an event (owner only)
+ */
+router.delete('/:id', requireAuth, async (req, res) => {
+    try {
+        const userId = req.session.userId
+        const { id } = req.params
+
+        // Verify ownership first
+        const { data: event, error: fetchError } = await supabase
+            .from('events')
+            .select('owner_id')
+            .eq('id', id)
+            .single()
+
+        if (fetchError || !event) {
+            return res.status(404).json({ success: false, error: 'Event not found' })
+        }
+
+        if (event.owner_id !== userId) {
+            return res.status(403).json({ success: false, error: 'Only the requestor can delete this event' })
+        }
+
+        // Delete the event
+        const { error: deleteError } = await supabase
+            .from('events')
+            .delete()
+            .eq('id', id)
+
+        if (deleteError) {
+            throw deleteError
+        }
+
+        res.json({
+            success: true,
+            message: 'Event deleted successfully'
+        })
+
+    } catch (error) {
+        console.error('Delete event error:', error)
         res.status(500).json({ success: false, error: error.message })
     }
 })

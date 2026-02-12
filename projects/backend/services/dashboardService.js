@@ -75,7 +75,7 @@ export const getUserClubs = async (userId) => {
  * @returns {Promise<Array>} Array of events with user role
  */
 export const getUserEvents = async (userId) => {
-    // Get events where user is a participant (any role)
+    // 1. Get events where user is a participant (member)
     const { data: memberships, error: memberError } = await supabase
         .from('event_members')
         .select(`
@@ -90,6 +90,8 @@ export const getUserEvents = async (userId) => {
         location,
         club_id,
         sponsor_name,
+        ticket_price,
+        wallet_address,
         owner_id,
         created_at,
         clubs (
@@ -104,11 +106,67 @@ export const getUserEvents = async (userId) => {
         throw new Error(`Failed to fetch user events: ${memberError.message}`)
     }
 
-    // Get participant counts for each event
-    const eventsWithDetails = await Promise.all(
-        (memberships || []).map(async (membership) => {
-            const event = membership.events
+    // 2. Get events owned by the user (in case they are not in members table yet)
+    const { data: ownedEvents, error: ownerError } = await supabase
+        .from('events')
+        .select(`
+        id,
+        title,
+        description,
+        banner_url,
+        event_date,
+        location,
+        club_id,
+        sponsor_name,
+        ticket_price,
+        wallet_address,
+        owner_id,
+        created_at,
+        clubs (
+          id,
+          name
+        )
+    `)
+        .eq('owner_id', userId)
 
+    if (ownerError) {
+        throw new Error(`Failed to fetch owned events: ${ownerError.message}`)
+    }
+
+    // 3. Combine and Deduplicate
+    const eventMap = new Map()
+
+    // Add memberships first
+    if (memberships) {
+        memberships.forEach(m => {
+            if (m.events) {
+                eventMap.set(m.events.id, {
+                    ...m.events,
+                    user_role: m.role,
+                    joined_at: m.joined_at,
+                    club_name: m.events.clubs?.name || null
+                })
+            }
+        })
+    }
+
+    // Add owned events (override if needed, or just ensure they exist)
+    if (ownedEvents) {
+        ownedEvents.forEach(e => {
+            if (!eventMap.has(e.id)) {
+                eventMap.set(e.id, {
+                    ...e,
+                    user_role: 'owner', // Implicit owner role
+                    joined_at: e.created_at,
+                    club_name: e.clubs?.name || null
+                })
+            }
+        })
+    }
+
+    // 4. Enrich with counts
+    const eventsWithDetails = await Promise.all(
+        Array.from(eventMap.values()).map(async (event) => {
             // Get total participant count
             const { count: participantCount } = await supabase
                 .from('event_members')
@@ -129,13 +187,15 @@ export const getUserEvents = async (userId) => {
                 event_date: event.event_date,
                 location: event.location,
                 club_id: event.club_id,
-                club_name: event.clubs?.name || null,
+                club_name: event.club_name,
                 sponsor_name: event.sponsor_name,
+                ticket_price: event.ticket_price,
+                wallet_address: event.wallet_address,
                 owner_id: event.owner_id,
-                user_role: membership.role, // 'owner', 'volunteer', or 'member'
+                user_role: event.user_role,
                 participant_count: participantCount || 0,
                 channel_count: channelCount || 0,
-                joined_at: membership.joined_at,
+                joined_at: event.joined_at,
                 created_at: event.created_at
             }
         })

@@ -86,7 +86,8 @@ router.post('/club', requireAuth, async (req, res) => {
 router.post('/event', requireAuth, async (req, res) => {
     try {
         const userId = req.session.userId;
-        const { title, description, banner_url, ticket_price, event_date, location, club_id } = req.body;
+
+        const { title, description, banner_url, ticket_price, event_date, location, club_id, sponsor_name, wallet_address, channels } = req.body;
 
         if (!title) {
             return res.status(400).json({ success: false, error: 'Event title is required' });
@@ -105,6 +106,9 @@ router.post('/event', requireAuth, async (req, res) => {
                 event_date,
                 location,
                 club_id, // Optional, if event belongs to a club
+                sponsor_name,
+                wallet_address,
+                channels_json: channels, // Store channels as JSONB if applicable or handle separately
                 requested_by: userId,
                 status: 'pending'
             })

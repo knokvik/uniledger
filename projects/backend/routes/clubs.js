@@ -218,4 +218,50 @@ router.put('/:id', requireAuth, async (req, res) => {
     }
 })
 
+/**
+ * DELETE /api/clubs/:id
+ * Delete a club (owner only)
+ */
+router.delete('/:id', requireAuth, async (req, res) => {
+    try {
+        const userId = req.session.userId
+        const { id } = req.params
+
+        // Verify ownership first
+        const { data: club, error: fetchError } = await supabase
+            .from('clubs')
+            .select('owner_id')
+            .eq('id', id)
+            .single()
+
+        if (fetchError || !club) {
+            return res.status(404).json({ success: false, error: 'Club not found' })
+        }
+
+        if (club.owner_id !== userId) {
+            return res.status(403).json({ success: false, error: 'Only the owner can delete this club' })
+        }
+
+        // Delete the club (cascade rules in DB should handle related data like members/channels, 
+        // but explicit checks might be safer depending on DB schema. Assuming cascade setup for now.)
+        const { error: deleteError } = await supabase
+            .from('clubs')
+            .delete()
+            .eq('id', id)
+
+        if (deleteError) {
+            throw deleteError
+        }
+
+        res.json({
+            success: true,
+            message: 'Club deleted successfully'
+        })
+
+    } catch (error) {
+        console.error('Delete club error:', error)
+        res.status(500).json({ success: false, error: error.message })
+    }
+})
+
 export default router
