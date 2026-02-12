@@ -24,6 +24,8 @@ const CreateEntityModal: React.FC<CreateEntityModalProps> = ({ isOpen, onClose, 
         location: '',
         sponsor_name: '',
         club_id: '',
+        wallet_address: '',
+        ticket_price: '',
         channels: [
             { name: 'general', description: 'General discussion', visibility: 'public' },
             { name: 'announcements', description: 'Announcements', visibility: 'public' },
@@ -87,6 +89,14 @@ const CreateEntityModal: React.FC<CreateEntityModalProps> = ({ isOpen, onClose, 
         e.preventDefault()
         setLoading(true)
         setError('')
+
+        // Validation: If ticket price > 0, wallet address is required
+        if (formData.ticket_price && parseFloat(formData.ticket_price) > 0 && !formData.wallet_address.trim()) {
+            setError('⚠️ Wallet address is required for paid events')
+            setLoading(false)
+            return
+        }
+
         try {
             await createEvent.mutateAsync({
                 title: formData.title,
@@ -96,6 +106,8 @@ const CreateEntityModal: React.FC<CreateEntityModalProps> = ({ isOpen, onClose, 
                 sponsor_name: formData.sponsor_name || null,
                 banner_url: formData.banner_url || null,
                 club_id: formData.club_id || null,
+                wallet_address: formData.wallet_address ? formData.wallet_address.trim() : null,
+                ticket_price: formData.ticket_price ? parseFloat(formData.ticket_price) : 0,
                 channels: formData.channels
             })
             onClose()
@@ -118,6 +130,8 @@ const CreateEntityModal: React.FC<CreateEntityModalProps> = ({ isOpen, onClose, 
             location: '',
             sponsor_name: '',
             club_id: '',
+            wallet_address: '',
+            ticket_price: '',
             channels: [
                 { name: 'general', description: 'General discussion', visibility: 'public' },
                 { name: 'announcements', description: 'Announcements', visibility: 'public' },
@@ -296,6 +310,32 @@ const CreateEntityModal: React.FC<CreateEntityModalProps> = ({ isOpen, onClose, 
                                                 placeholder="https://..."
                                             />
                                         </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Wallet Address (for payments)</label>
+                                        <input
+                                            type="text"
+                                            name="wallet_address"
+                                            value={formData.wallet_address}
+                                            onChange={handleChange}
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm"
+                                            placeholder="Algorand Wallet Address"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Ticket Price (ALGO)</label>
+                                        <input
+                                            type="number"
+                                            name="ticket_price"
+                                            value={formData.ticket_price}
+                                            onChange={handleChange}
+                                            step="0.001"
+                                            min="0"
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                            placeholder="0.00"
+                                        />
                                     </div>
                                 </>
                             )}

@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import ThreeDotLoader from './ThreeDotLoader'
+import { useWallet } from '@txnlab/use-wallet-react'
+import { createPaymentTransaction, waitForConfirmation } from '../utils/algorandPayment'
+import algosdk from 'algosdk'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
@@ -13,7 +17,10 @@ const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => {
     const [query, setQuery] = useState('')
     const [results, setResults] = useState<{ clubs: any[], events: any[] }>({ clubs: [], events: [] })
     const [loading, setLoading] = useState(false)
+    const [actionLoading, setActionLoading] = useState<string | null>(null)
     const inputRef = useRef<HTMLInputElement>(null)
+    const { activeAddress, signTransactions, wallets } = useWallet()
+    const queryClient = useQueryClient()
 
     // Reset when opened
     useEffect(() => {
@@ -43,6 +50,164 @@ const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => {
             console.error(error)
         } finally {
             setLoading(false)
+        }
+    }
+
+    const handleJoinClub = async (clubId: string, clubName: string) => {
+        setActionLoading(clubId)
+        try {
+            const message = prompt(`Why do you want to join "${clubName}"? (Optional)`)
+
+            const response = await axios.post(
+                `${API_URL}/api/join-requests/club/${clubId}`,
+                { message: message || '' },
+                { withCredentials: true }
+            )
+
+            if (response.data.success) {
+                alert('✅ Join request sent! The club owner will review your request.')
+                handleSearch(query)
+                queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+                queryClient.invalidateQueries({ queryKey: ['notifications'] })
+            }
+        } catch (error: any) {
+            console.error('Join club error:', error)
+            const errorMsg = error.response?.data?.message || 'Failed to send join request'
+            alert('❌ ' + errorMsg)
+        } finally {
+            setActionLoading(null)
+        }
+    }
+
+    const handleJoinEvent = async (event: any) => {
+        setActionLoading(event.id)
+        try {
+            // Check if event requires payment
+            const detailsResponse = await axios.get(
+                `${API_URL}/api/payments/event/${event.id}/details`,
+                { withCredentials: true }
+            )
+
+            const { alreadyPaid, alreadyMember, event: eventDetails } = detailsResponse.data
+
+            // If already has access
+            if (alreadyPaid || alreadyMember) {
+                alert('✅ You already have access to this event!')
+                setActionLoading(null)
+                return
+            }
+
+            // If event requires payment
+            if (eventDetails.ticketPrice && eventDetails.ticketPrice > 0) {
+                // Check if wallet connected
+                if (!activeAddress) {
+                    const connectNow = confirm('⚠️ You need to connect your wallet to buy tickets.\n\nDo you want to connect Pera Wallet now?')
+                    if (connectNow) {
+                        const peraWallet = wallets?.find((w: any) => w.metadata.name === 'Pera Wallet' || w.id === 'pera')
+                        if (peraWallet) {
+                            try {
+                                await peraWallet.connect()
+                            } catch (err) {
+                                console.error('Failed to connect wallet:', err)
+                            }
+                        } else {
+                            alert('Pera Wallet not found. Please connect manually from the dashboard.')
+                        }
+                    }
+                    setActionLoading(null)
+                    return
+                }
+
+                const confirmed = confirm(
+                    `This event requires a ticket purchase of ${eventDetails.ticketPrice} ALGO.\n\n` +
+                    `Do you want to proceed with the payment?`
+                )
+
+                if (!confirmed) {
+                    setActionLoading(null)
+                    return
+                }
+
+                // Process payment
+                try {
+                    // Create transaction
+                    const txn = await createPaymentTransaction(
+                        activeAddress,
+                        eventDetails.walletAddress,
+                        eventDetails.ticketPrice,
+                        `Ticket: ${eventDetails.title}`
+                    )
+
+                    // Sign with Pera Wallet
+                    const encodedTxn = algosdk.encodeUnsignedTransaction(txn)
+                    const signedTxns = await signTransactions([encodedTxn])
+
+                    // Filter out null values and validate
+                    const validSignedTxns = signedTxns.filter((txn): txn is Uint8Array => txn !== null)
+
+                    if (validSignedTxns.length === 0) {
+                        throw new Error('Transaction signing failed - no valid signed transactions')
+                    }
+
+                    // Send transaction using algod client
+                    const algodClient = new algosdk.Algodv2('', 'https://testnet-api.algonode.cloud', '')
+                    const { txid } = await algodClient.sendRawTransaction(validSignedTxns[0]).do()
+
+                    alert('⏳ Transaction sent! Waiting for confirmation...')
+
+                    // Wait for confirmation
+                    await waitForConfirmation(txid)
+
+                    // Verify on backend
+                    const verifyResponse = await axios.post(
+                        `${API_URL}/api/payments/event/${event.id}/verify`,
+                        {
+                            transactionId: txid,
+                            walletAddress: activeAddress
+                        },
+                        { withCredentials: true }
+                    )
+
+                    if (verifyResponse.data.success) {
+                        alert('🎉 Payment successful! You now have access to the event!')
+                        handleSearch(query)
+                        queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+                        queryClient.invalidateQueries({ queryKey: ['notifications'] })
+                    } else {
+                        alert('❌ Payment verification failed. Please contact support.')
+                    }
+                } catch (paymentError: any) {
+                    console.error('Payment error:', paymentError)
+                    alert('❌ Payment failed: ' + (paymentError.message || 'Unknown error'))
+                }
+            } else {
+                // Free event - join directly
+                try {
+                    const joinResponse = await axios.post(
+                        `${API_URL}/api/payments/event/${event.id}/join-free`,
+                        {},
+                        { withCredentials: true }
+                    )
+
+                    if (joinResponse.data.success) {
+                        alert('🎉 Successfully joined the event!')
+                        handleSearch(query)
+                        queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+                        queryClient.invalidateQueries({ queryKey: ['notifications'] })
+                    }
+                } catch (joinError: any) {
+                    console.error('Join error:', joinError)
+                    const errorMsg = joinError.response?.data?.message || 'Failed to join event'
+                    alert('❌ ' + errorMsg)
+                }
+            }
+
+        } catch (error: any) {
+            console.error('Join event error:', error)
+            const errorMsg = error.response?.data?.message || 'Failed to join event'
+            alert('❌ ' + errorMsg)
+        } finally {
+            setActionLoading(null)
         }
     }
 
@@ -99,20 +264,21 @@ const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => {
                                     <div className="space-y-2">
                                         {results.clubs.map((club: any) => (
                                             <div key={club.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg group transition border border-transparent hover:border-gray-200 cursor-default">
-                                                <div className="flex items-center gap-3">
+                                                <div className="flex items-center gap-3 flex-1 min-w-0">
                                                     <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600 font-bold shrink-0">
                                                         {club.name[0]}
                                                     </div>
-                                                    <div>
+                                                    <div className="min-w-0">
                                                         <h4 className="font-medium text-gray-900">{club.name}</h4>
                                                         <p className="text-sm text-gray-500 line-clamp-1">{club.description || 'No description'}</p>
                                                     </div>
                                                 </div>
                                                 <button
-                                                    onClick={() => alert('Join functionality coming soon!')}
-                                                    className="px-3 py-1.5 bg-indigo-50 text-indigo-600 text-xs font-medium rounded-lg hover:bg-indigo-100 transition opacity-0 group-hover:opacity-100"
+                                                    onClick={() => handleJoinClub(club.id, club.name)}
+                                                    disabled={actionLoading === club.id}
+                                                    className="px-3 py-1.5 bg-indigo-50 text-indigo-600 text-xs font-medium rounded-lg hover:bg-indigo-100 transition opacity-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                                                 >
-                                                    Join Club
+                                                    {actionLoading === club.id ? 'Sending...' : 'Request to Join'}
                                                 </button>
                                             </div>
                                         ))}
@@ -127,20 +293,26 @@ const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => {
                                     <div className="space-y-2">
                                         {results.events.map((event: any) => (
                                             <div key={event.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg group transition border border-transparent hover:border-gray-200 cursor-default">
-                                                <div className="flex items-center gap-3">
+                                                <div className="flex items-center gap-3 flex-1 min-w-0">
                                                     <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center text-pink-600 font-bold shrink-0">
                                                         {event.title[0]}
                                                     </div>
-                                                    <div>
+                                                    <div className="min-w-0">
                                                         <h4 className="font-medium text-gray-900">{event.title}</h4>
                                                         <p className="text-sm text-gray-500 line-clamp-1">{event.description || 'No description'}</p>
+                                                        {event.ticket_price && event.ticket_price > 0 && (
+                                                            <span className="inline-block mt-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium">
+                                                                💰 {event.ticket_price} ALGO
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <button
-                                                    onClick={() => alert('Join functionality coming soon!')}
-                                                    className="px-3 py-1.5 bg-pink-50 text-pink-600 text-xs font-medium rounded-lg hover:bg-pink-100 transition opacity-0 group-hover:opacity-100"
+                                                    onClick={() => handleJoinEvent(event)}
+                                                    disabled={actionLoading === event.id}
+                                                    className="px-3 py-1.5 bg-pink-50 text-pink-600 text-xs font-medium rounded-lg hover:bg-pink-100 transition opacity-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                                                 >
-                                                    Join Event
+                                                    {actionLoading === event.id ? 'Processing...' : (event.ticket_price && event.ticket_price > 0) ? `Buy Ticket` : 'Join Event'}
                                                 </button>
                                             </div>
                                         ))}

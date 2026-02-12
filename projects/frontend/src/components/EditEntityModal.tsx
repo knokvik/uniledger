@@ -72,7 +72,9 @@ const EditEntityModal: React.FC<EditEntityModalProps> = ({ isOpen, onClose, type
         event_date: '',
         location: '',
         sponsor_name: '',
-        club_id: ''
+        club_id: '',
+        wallet_address: '',
+        ticket_price: ''
     })
 
     // Load entity data when modal opens or entity changes
@@ -87,7 +89,9 @@ const EditEntityModal: React.FC<EditEntityModalProps> = ({ isOpen, onClose, type
                 event_date: entity.event_date ? new Date(entity.event_date).toISOString().slice(0, 16) : '', // Format for datetime-local
                 location: entity.location || '',
                 sponsor_name: entity.sponsor_name || '',
-                club_id: entity.club_id || ''
+                club_id: entity.club_id || '',
+                wallet_address: entity.wallet_address || '',
+                ticket_price: entity.ticket_price || ''
             })
         }
     }, [entity, isOpen])
@@ -135,7 +139,9 @@ const EditEntityModal: React.FC<EditEntityModalProps> = ({ isOpen, onClose, type
                     location: formData.location || null,
                     sponsor_name: formData.sponsor_name || null,
                     banner_url: formData.banner_url || null,
-                    club_id: formData.club_id || null
+                    club_id: formData.club_id || null,
+                    wallet_address: formData.wallet_address || null,
+                    ticket_price: formData.ticket_price ? parseFloat(formData.ticket_price) : null
                 }
             })
             onClose()
@@ -323,6 +329,32 @@ const EditEntityModal: React.FC<EditEntityModalProps> = ({ isOpen, onClose, type
                                             value={formData.banner_url}
                                             onChange={handleChange}
                                             className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Ticket Price</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            name="ticket_price"
+                                            value={formData.ticket_price}
+                                            onChange={handleChange}
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Wallet Address</label>
+                                        <input
+                                            type="text"
+                                            name="wallet_address"
+                                            value={formData.wallet_address}
+                                            onChange={handleChange}
+                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-xs"
+                                            placeholder="Enter Algorand Address"
                                         />
                                     </div>
                                 </div>

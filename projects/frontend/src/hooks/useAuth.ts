@@ -85,5 +85,7 @@ export const useAuth = () => {
         loginError: loginMutation.error,
         registerError: registerMutation.error,
         isAuthLoading: isLoading,
+        user: currentUser?.user,
+        isAuthenticated: !!currentUser?.user
     }
 }

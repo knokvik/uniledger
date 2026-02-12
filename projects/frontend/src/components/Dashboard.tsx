@@ -9,9 +9,12 @@ import ThreeDotLoader from "./ThreeDotLoader"
 import CreateEntityModal from "./CreateEntityModal"
 import EditEntityModal from "./EditEntityModal"
 import SearchModal from "./SearchModal"
+import ProfileSettingsModal from "./ProfileSettingsModal"
+import NotificationBell from "./NotificationBell"
+
 const Dashboard = () => {
   const { activeAddress, wallets } = useWallet()
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const [loading, setLoading] = useState(false)
   const [activeSection, setActiveSection] = useState("dashboard")
   const [showWalletMenu, setShowWalletMenu] = useState(false)
@@ -19,6 +22,7 @@ const Dashboard = () => {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createType, setCreateType] = useState<'club' | 'event'>('club')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false)
 
   const openCreateModal = (type: 'club' | 'event') => {
     setCreateType(type)
@@ -364,18 +368,26 @@ const Dashboard = () => {
         {/* User Profile */}
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-              <span className="text-white font-semibold">
-                {activeAddress ? activeAddress[0].toUpperCase() : "U"}
-              </span>
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center overflow-hidden">
+              {user?.avatar_url ? (
+                <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-white font-semibold">
+                  {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
+                </span>
+              )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-800">User</p>
+              <p className="text-sm font-semibold text-gray-800">{user?.name || 'User'}</p>
               <p className="text-xs text-gray-500 truncate">
-                {activeAddress ? formatAddress(activeAddress) : "Not connected"}
+                {user?.email || 'Not logged in'}
               </p>
             </div>
-            <button className="text-gray-400 hover:text-gray-600">
+            <button
+              onClick={() => setIsProfileSettingsOpen(true)}
+              className="text-gray-400 hover:text-gray-600 transition"
+              title="Profile Settings"
+            >
               <span className="text-lg">⚙️</span>
             </button>
           </div>
@@ -460,7 +472,7 @@ const Dashboard = () => {
                     const isClub = activeSection.startsWith('club-')
                     const id = activeSection.replace(isClub ? 'club-' : 'event-', '')
                     const item = isClub ? clubs.find((c: any) => c.id === id) : events.find((e: any) => e.id === id)
-                    if (item?.user_role === 'owner') {
+                    if (item?.user_role === 'owner' || item?.owner_id === user?.id) {
                       return <button onClick={handleCreateChannel} className="text-gray-400 hover:text-gray-600 font-bold text-lg leading-none transition-colors" title="Create Channel">+</button>
                     }
                     return null
@@ -491,7 +503,7 @@ const Dashboard = () => {
                           const isClub = activeSection.startsWith('club-')
                           const id = activeSection.replace(isClub ? 'club-' : 'event-', '')
                           const item = isClub ? clubs.find((c: any) => c.id === id) : events.find((e: any) => e.id === id)
-                          if (item?.user_role === 'owner') {
+                          if (item?.user_role === 'owner' || item?.owner_id === user?.id) {
                             return (
                               <span
                                 onClick={(e) => handleDeleteChannel(e, channel.id)}
@@ -522,7 +534,7 @@ const Dashboard = () => {
             const id = activeSection.replace(isClub ? 'club-' : 'event-', '')
             const item = isClub ? clubs.find((c: any) => c.id === id) : events.find((e: any) => e.id === id)
 
-            if (item?.user_role === 'owner') {
+            if (item?.user_role === 'owner' || item?.owner_id === user?.id) {
               return (
                 <div className="p-3 border-t border-gray-200 bg-gray-50 mt-auto">
                   <button
@@ -586,10 +598,7 @@ const Dashboard = () => {
               )}
             </div>
             <div className="flex items-center gap-4">
-              <button className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">
-                <span className="text-xl">🔔</span>
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              <NotificationBell />
               <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition">
                 <span className="text-xl">❓</span>
               </button>
@@ -1219,6 +1228,13 @@ const Dashboard = () => {
 
       {/* Search Modal */}
       <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+
+      {/* Profile Settings Modal */}
+      <ProfileSettingsModal
+        isOpen={isProfileSettingsOpen}
+        onClose={() => setIsProfileSettingsOpen(false)}
+        user={user}
+      />
     </div>
   )
 }
