@@ -1,8 +1,6 @@
 <div align="center">
 
-<h1 style="margin-bottom:2px">
-  UniLedger
-</h1>
+<img width="240" height="63" alt="uniledger" src="https://github.com/user-attachments/assets/eb3b6a94-2917-4a86-b46e-cdd6217ae982" />
 
 ### Decentralized Campus Clubs, Events & Treasury Management Platform
 
