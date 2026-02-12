@@ -131,6 +131,17 @@ router.patch('/clubs/:id/status', requireAuth, requireAdmin, async (req, res) =>
 });
 
 // Manage Events
+router.get('/events', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const status = req.query.status || null;
+        const result = await adminService.getAllEvents(page, 10, status);
+        res.json({ success: true, ...result });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Error fetching events', details: error.message });
+    }
+});
+
 router.patch('/events/:id/status', requireAuth, requireAdmin, async (req, res) => {
     try {
         const result = await adminService.updateEventStatus(req.params.id, req.body.status);

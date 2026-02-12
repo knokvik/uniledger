@@ -3,29 +3,31 @@ import { supabase } from '../config/supabase.js';
 /**
  * Get system overview statistics for admin dashboard
  */
-/**
- * Get system overview statistics for admin dashboard
- */
 export const getSystemOverview = async () => {
     // Parallel queries for efficiency
-    const [clubs, events, users, payments, clubRequests, eventRequests] = await Promise.all([
-        supabase.from('clubs').select('id, status', { count: 'exact' }),
-        supabase.from('events').select('id, status', { count: 'exact' }),
+    const [clubs, events, users, payments] = await Promise.all([
+        supabase.from('clubs').select('id, status'),
+        supabase.from('events').select('id, status'),
         supabase.from('users').select('id', { count: 'exact' }),
-        supabase.from('event_payments').select('amount', { count: 'exact' }).eq('status', 'verified'),
-        supabase.from('club_creation_requests').select('id', { count: 'exact' }).eq('status', 'pending'),
-        supabase.from('event_creation_requests').select('id', { count: 'exact' }).eq('status', 'pending')
+        supabase.from('event_payments').select('amount').eq('status', 'verified')
     ]);
 
     const totalRevenue = payments.data?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
 
+    const clubData = clubs.data || [];
+    const eventData = events.data || [];
+
     return {
-        totalClubs: clubs.count || 0,
-        suspendedClubs: clubs.data?.filter(c => c.status === 'suspended').length || 0,
-        pendingClubs: (clubRequests.count || 0), // Now using requests table
-        totalEvents: events.count || 0,
-        pendingEvents: (eventRequests.count || 0), // Now using requests table
-        cancelledEvents: events.data?.filter(e => e.status === 'cancelled').length || 0,
+        totalClubs: clubData.length,
+        activeClubs: clubData.filter(c => c.status === 'active').length,
+        suspendedClubs: clubData.filter(c => c.status === 'suspended').length,
+        pendingClubs: clubData.filter(c => c.status === 'pending').length,
+
+        totalEvents: eventData.length,
+        activeEvents: eventData.filter(e => e.status === 'active').length,
+        pendingEvents: eventData.filter(e => e.status === 'pending').length,
+        cancelledEvents: eventData.filter(e => e.status === 'cancelled').length,
+
         totalUsers: users.count || 0,
         totalRevenue: totalRevenue.toFixed(2)
     };
@@ -35,175 +37,97 @@ export const getSystemOverview = async () => {
  * Get pending creation requests
  */
 export const getCreationRequests = async (type = 'club') => {
-    const table = type === 'club' ? 'club_creation_requests' : 'event_creation_requests';
+    const table = type === 'club' ? 'clubs' : 'events';
     const relation = type === 'club'
-        ? 'users!club_creation_requests_requested_by_fkey'
-        : 'users!event_creation_requests_requested_by_fkey';
+        ? 'owner:users!clubs_owner_id_fkey' // Check foreign key name in DB, usually implicit if named owner_id
+        : 'owner:users!events_owner_id_fkey';
+
+    // Note: If explicit FK name is needed, find it. Otherwise, Supabase usually infers from 'owner_id' -> 'users.id'
+    // For safety, assuming standard naming. If error, we might need just 'users'
+    const joinQuery = type === 'club'
+        ? '*, owner:users(id, name, email)'
+        : '*, owner:users(id, name, email)';
 
     const { data, error } = await supabase
         .from(table)
-        .select(`*, requested_by:${relation}(id, name, email)`)
+        .select(joinQuery)
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
     if (error) throw error;
-
-    // Normalize data structure for frontend (optional, since alias works)
     return data;
 };
 
 /**
  * Process Club Request (Approve/Reject)
  */
-export const processClubRequest = async (requestId, action, adminId) => {
+export const processClubRequest = async (id, action, adminId) => {
     if (!['approve', 'reject'].includes(action)) throw new Error('Invalid action');
 
-    // 1. Fetch Request
-    const { data: request, error: fetchError } = await supabase
-        .from('club_creation_requests')
-        .select('*')
-        .eq('id', requestId)
+    const status = action === 'approve' ? 'active' : 'rejected';
+
+    // Update Status
+    const { data: club, error } = await supabase
+        .from('clubs')
+        .update({
+            status,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select('*, owner_id, name')
         .single();
 
-    if (fetchError || !request) throw new Error('Request not found');
-    if (request.status !== 'pending') throw new Error('Request already processed');
+    if (error) throw error;
 
-    if (action === 'approve') {
-        // 2a. Create Club
-        const { data: club, error: createError } = await supabase
-            .from('clubs')
-            .insert({
-                name: request.name,
-                description: request.description,
-                banner_url: request.banner_url,
-                logo_url: request.logo_url,
-                owner_id: request.requested_by,
-                status: 'active'
-            })
-            .select()
-            .single();
+    // Send Notification
+    await supabase.from('notifications').insert({
+        user_id: club.owner_id,
+        type: action === 'approve' ? 'request_approved' : 'request_rejected',
+        title: action === 'approve' ? 'Club Approved!' : 'Club Request Rejected',
+        message: action === 'approve'
+            ? `Your club "${club.name}" has been approved.`
+            : `Your request for club "${club.name}" was rejected.`,
+        related_id: club.id,
+        related_type: 'club'
+    });
 
-        if (createError) throw createError;
-
-        // 2b. Add Owner as Member
-        await supabase.from('club_members').insert({
-            club_id: club.id,
-            user_id: request.requested_by,
-            role: 'owner'
-        });
-
-        // 2c. Create Default Channels
-        const channels = [
-            { name: 'general', description: 'General discussion', visibility: 'public' },
-            { name: 'announcements', description: 'Important announcements', visibility: 'public' },
-            { name: 'volunteers', description: 'Volunteer coordination', visibility: 'volunteer' }
-        ];
-        await supabase.from('channels').insert(
-            channels.map(ch => ({ ...ch, club_id: club.id, created_by: request.requested_by }))
-        );
-
-        // 3. Update Request Status
-        await supabase
-            .from('club_creation_requests')
-            .update({ status: 'approved', reviewed_by: adminId, reviewed_at: new Date() })
-            .eq('id', requestId);
-
-        // 4. Notify User
-        await supabase.from('notifications').insert({
-            user_id: request.requested_by,
-            type: 'request_approved',
-            title: 'Club Approved!',
-            message: `Your club "${request.name}" has been approved.`,
-            related_id: club.id,
-            related_type: 'club'
-        });
-
-        return club;
-    } else {
-        // Reject Logic
-        await supabase
-            .from('club_creation_requests')
-            .update({ status: 'rejected', reviewed_by: adminId, reviewed_at: new Date() })
-            .eq('id', requestId);
-
-        await supabase.from('notifications').insert({
-            user_id: request.requested_by,
-            type: 'request_rejected',
-            title: 'Club Request Rejected',
-            message: `Your request for club "${request.name}" was rejected.`,
-            related_id: requestId,
-            related_type: 'club_request'
-        });
-
-        return { status: 'rejected' };
-    }
+    return club;
 };
 
 /**
  * Process Event Request (Approve/Reject)
  */
-export const processEventRequest = async (requestId, action, adminId) => {
+export const processEventRequest = async (id, action, adminId) => {
     if (!['approve', 'reject'].includes(action)) throw new Error('Invalid action');
 
-    const { data: request, error: fetchError } = await supabase
-        .from('event_creation_requests')
-        .select('*')
-        .eq('id', requestId)
+    const status = action === 'approve' ? 'active' : 'rejected';
+
+    // Update Status
+    const { data: event, error } = await supabase
+        .from('events')
+        .update({
+            status,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select('*, owner_id, title')
         .single();
 
-    if (fetchError || !request) throw new Error('Request not found');
+    if (error) throw error;
 
-    if (action === 'approve') {
-        const { data: event, error: createError } = await supabase
-            .from('events')
-            .insert({
-                title: request.title,
-                description: request.description,
-                banner_url: request.banner_url,
-                event_date: request.event_date,
-                location: request.location,
-                ticket_price: request.ticket_price,
-                club_id: request.club_id,
-                owner_id: request.requested_by, // Or club owner? Assuming requester is owner for now.
-                status: 'active'
-            })
-            .select()
-            .single();
+    // Send Notification
+    await supabase.from('notifications').insert({
+        user_id: event.owner_id,
+        type: action === 'approve' ? 'request_approved' : 'request_rejected',
+        title: action === 'approve' ? 'Event Approved!' : 'Event Request Rejected',
+        message: action === 'approve'
+            ? `Your event "${event.title}" has been approved.`
+            : `Your request for event "${event.title}" was rejected.`,
+        related_id: event.id,
+        related_type: 'event'
+    });
 
-        if (createError) throw createError;
-
-        await supabase
-            .from('event_creation_requests')
-            .update({ status: 'approved', reviewed_by: adminId, reviewed_at: new Date() })
-            .eq('id', requestId);
-
-        await supabase.from('notifications').insert({
-            user_id: request.requested_by,
-            type: 'request_approved',
-            title: 'Event Approved!',
-            message: `Your event "${request.title}" has been approved.`,
-            related_id: event.id,
-            related_type: 'event'
-        });
-
-        return event;
-    } else {
-        await supabase
-            .from('event_creation_requests')
-            .update({ status: 'rejected', reviewed_by: adminId, reviewed_at: new Date() })
-            .eq('id', requestId);
-
-        await supabase.from('notifications').insert({
-            user_id: request.requested_by,
-            type: 'request_rejected',
-            title: 'Event Request Rejected',
-            message: `Your request for event "${request.title}" was rejected.`,
-            related_id: requestId,
-            related_type: 'event_request'
-        });
-
-        return { status: 'rejected' };
-    }
+    return event;
 };
 
 /**
@@ -215,7 +139,7 @@ export const getAllClubs = async (page = 1, limit = 10, status = null) => {
 
     let query = supabase
         .from('clubs')
-        .select(`*, owner:users(id, name, email) `, { count: 'exact' })
+        .select('*, owner:users(id, name, email)', { count: 'exact' })
         .range(from, to)
         .order('created_at', { ascending: false });
 
@@ -230,11 +154,34 @@ export const getAllClubs = async (page = 1, limit = 10, status = null) => {
 };
 
 /**
- * Update club status (approve/suspend/reactivate)
+ * Get all events with pagination and optional status filter
+ */
+export const getAllEvents = async (page = 1, limit = 10, status = null) => {
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    let query = supabase
+        .from('events')
+        .select('*, owner:users(id, name, email), club:clubs(name)', { count: 'exact' })
+        .range(from, to)
+        .order('created_at', { ascending: false });
+
+    if (status) {
+        query = query.eq('status', status);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) throw error;
+    return { data, count, page, limit };
+};
+
+/**
+ * Update club status (suspend/reactivate)
  */
 export const updateClubStatus = async (clubId, status) => {
     if (!['active', 'suspended', 'pending'].includes(status)) {
-        throw new Error('Invalid status. Must be active, suspended or pending');
+        throw new Error('Invalid status');
     }
 
     const { data, error } = await supabase
@@ -246,12 +193,11 @@ export const updateClubStatus = async (clubId, status) => {
 
     if (error) throw error;
 
-    // NOTIFY OWNER
-    if (data.owner_id && status !== 'pending') {
+    if (data.owner_id) {
         await supabase.from('notifications').insert({
             user_id: data.owner_id,
             type: 'status_update',
-            title: `Club ${status === 'active' ? 'Approved' : 'Status Updated'}`,
+            title: 'Club Status Updated',
             message: `Your club "${data.name}" is now ${status}.`,
             related_id: clubId,
             related_type: 'club'
@@ -262,11 +208,11 @@ export const updateClubStatus = async (clubId, status) => {
 };
 
 /**
- * Update event status (approve/cancel/reactivate)
+ * Update event status (suspend/reactivate)
  */
 export const updateEventStatus = async (eventId, status) => {
     if (!['active', 'cancelled', 'pending'].includes(status)) {
-        throw new Error('Invalid status. Must be active, cancelled or pending');
+        throw new Error('Invalid status');
     }
 
     const { data, error } = await supabase
@@ -278,12 +224,11 @@ export const updateEventStatus = async (eventId, status) => {
 
     if (error) throw error;
 
-    // NOTIFY OWNER
-    if (data.owner_id && status !== 'pending') {
+    if (data.owner_id) {
         await supabase.from('notifications').insert({
             user_id: data.owner_id,
             type: 'status_update',
-            title: `Event ${status === 'active' ? 'Approved' : 'Status Updated'}`,
+            title: 'Event Status Updated',
             message: `Your event "${data.title}" is now ${status}.`,
             related_id: eventId,
             related_type: 'event'
