@@ -1,26 +1,50 @@
 import express from 'express'
-import { requireAuth } from '../middleware/auth.js'
+import { requireAuth } from '../middleware/authMiddleware.js'
 import { supabase } from '../config/supabase.js'
 
 const router = express.Router()
 
 /**
+ * GET /api/events
+ * List active events
+ */
+router.get('/', async (req, res) => {
+    try {
+        const { data: events, error } = await supabase
+            .from('events')
+            .select('*')
+            .eq('status', 'active') // Only show active events
+            .order('event_date', { ascending: true })
+
+        if (error) throw error
+
+        res.json({
+            success: true,
+            data: events
+        })
+    } catch (error) {
+        console.error('List events error:', error)
+        res.status(500).json({
+            success: false,
+            error: error.message
+        })
+    }
+})
+
+/**
  * POST /api/events
- * Create a new event
+ * Create a new event (Starts as 'pending')
  */
 router.post('/', requireAuth, async (req, res) => {
     try {
-        const userId = req.user.id
+        const userId = req.session.userId
         const { title, description, banner_url, event_date, location, club_id, sponsor_name, channels, wallet_address, ticket_price } = req.body
 
         if (!title) {
-            return res.status(400).json({
-                success: false,
-                error: 'Event title is required'
-            })
+            return res.status(400).json({ success: false, error: 'Event title is required' })
         }
 
-        // Create event
+        // Create event with 'pending' status
         const { data: event, error: eventError } = await supabase
             .from('events')
             .insert({
@@ -33,7 +57,8 @@ router.post('/', requireAuth, async (req, res) => {
                 sponsor_name,
                 wallet_address,
                 ticket_price,
-                owner_id: userId
+                owner_id: userId,
+                status: 'pending' // Enforce approval flow
             })
             .select()
             .single()
@@ -52,12 +77,11 @@ router.post('/', requireAuth, async (req, res) => {
             })
 
         if (memberError) {
-            // Rollback: delete the event if member insertion fails
             await supabase.from('events').delete().eq('id', event.id)
             throw new Error(`Failed to add owner to event: ${memberError.message}`)
         }
 
-        // Create channels (custom or default)
+        // Create default channels
         const channelsToCreate = (channels && Array.isArray(channels) && channels.length > 0)
             ? channels
             : [
@@ -74,26 +98,30 @@ router.post('/', requireAuth, async (req, res) => {
             created_by: userId
         }))
 
-        const { error: channelError } = await supabase
-            .from('channels')
-            .insert(channelsToInsert)
+        await supabase.from('channels').insert(channelsToInsert)
 
-        if (channelError) {
-            console.error('Failed to create default channels:', channelError)
-            // Don't fail the whole operation, just log the error
+        // NOTIFY ADMINS
+        const { data: admins } = await supabase.from('users').select('id').eq('role', 'college_admin')
+        if (admins && admins.length > 0) {
+            const notifications = admins.map(admin => ({
+                user_id: admin.id,
+                type: 'approval_request',
+                title: 'New Event Request',
+                message: `Event "${title}" requires approval.`,
+                related_id: event.id,
+                related_type: 'event'
+            }))
+            await supabase.from('notifications').insert(notifications)
         }
 
         res.status(201).json({
             success: true,
             data: event,
-            message: 'Event created successfully!'
+            message: 'Event request submitted! Pending admin approval.'
         })
     } catch (error) {
         console.error('Event creation error:', error)
-        res.status(500).json({
-            success: false,
-            error: error.message
-        })
+        res.status(500).json({ success: false, error: error.message })
     }
 })
 
@@ -104,33 +132,32 @@ router.post('/', requireAuth, async (req, res) => {
 router.get('/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params
+        const userId = req.session.userId
 
         const { data: event, error } = await supabase
             .from('events')
-            .select(`
-        *,
-        clubs (
-          id,
-          name
-        )
-      `)
+            .select(`*, clubs (id, name)`)
             .eq('id', id)
             .single()
 
-        if (error) {
-            throw new Error(`Failed to fetch event: ${error.message}`)
+        if (error || !event) {
+            return res.status(404).json({ success: false, error: 'Event not found' })
         }
 
-        res.json({
-            success: true,
-            data: event
-        })
+        // Access Control for Pending events
+        if (event.status !== 'active') {
+            const { data: user } = await supabase.from('users').select('role').eq('id', userId).single()
+            const isAdmin = user?.role === 'college_admin'
+
+            if (!isAdmin && event.owner_id !== userId) {
+                return res.status(403).json({ success: false, error: 'Event is pending approval.' })
+            }
+        }
+
+        res.json({ success: true, data: event })
     } catch (error) {
         console.error('Event fetch error:', error)
-        res.status(500).json({
-            success: false,
-            error: error.message
-        })
+        res.status(500).json({ success: false, error: error.message })
     }
 })
 
@@ -140,59 +167,35 @@ router.get('/:id', requireAuth, async (req, res) => {
  */
 router.put('/:id', requireAuth, async (req, res) => {
     try {
-        const userId = req.user.id
+        const userId = req.session.userId
         const { id } = req.params
         const { title, description, banner_url, event_date, location, club_id, sponsor_name, wallet_address, ticket_price } = req.body
 
-        // Check if user is owner
-        const { data: membership } = await supabase
-            .from('event_members')
-            .select('role')
-            .eq('event_id', id)
-            .eq('user_id', userId)
+        const { data: event } = await supabase
+            .from('events')
+            .select('owner_id')
+            .eq('id', id)
             .single()
 
-        if (membership?.role !== 'owner') {
-            return res.status(403).json({
-                success: false,
-                error: 'Only event owners can update event details'
-            })
+        if (event?.owner_id !== userId) {
+            return res.status(403).json({ success: false, error: 'Only event owners can update details' })
         }
 
-        // Update event
-        const { data: event, error } = await supabase
+        const { data: updatedEvent, error } = await supabase
             .from('events')
             .update({
-                title,
-                description,
-                banner_url,
-                event_date,
-                location,
-                club_id,
-                sponsor_name,
-                wallet_address,
-                ticket_price,
+                title, description, banner_url, event_date, location, club_id, sponsor_name, wallet_address, ticket_price,
                 updated_at: new Date().toISOString()
             })
             .eq('id', id)
             .select()
             .single()
 
-        if (error) {
-            throw new Error(`Failed to update event: ${error.message}`)
-        }
+        if (error) throw error
 
-        res.json({
-            success: true,
-            data: event,
-            message: 'Event updated successfully!'
-        })
+        res.json({ success: true, data: updatedEvent })
     } catch (error) {
-        console.error('Event update error:', error)
-        res.status(500).json({
-            success: false,
-            error: error.message
-        })
+        res.status(500).json({ success: false, error: error.message })
     }
 })
 

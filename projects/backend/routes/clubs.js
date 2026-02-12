@@ -1,26 +1,50 @@
 import express from 'express'
-import { requireAuth } from '../middleware/auth.js'
+import { requireAuth } from '../middleware/authMiddleware.js' // Use new unified middleware
 import { supabase } from '../config/supabase.js'
 
 const router = express.Router()
 
 /**
+ * GET /api/clubs
+ * List active clubs
+ */
+router.get('/', async (req, res) => {
+    try {
+        const { data: clubs, error } = await supabase
+            .from('clubs')
+            .select('id, name, description, banner_url, logo_url, created_at')
+            .eq('status', 'active') // Only show active clubs
+            .order('created_at', { ascending: false })
+
+        if (error) throw error
+
+        res.json({
+            success: true,
+            data: clubs
+        })
+    } catch (error) {
+        console.error('List clubs error:', error)
+        res.status(500).json({
+            success: false,
+            error: error.message
+        })
+    }
+})
+
+/**
  * POST /api/clubs
- * Create a new club
+ * Request to create a new club (Starts as 'pending')
  */
 router.post('/', requireAuth, async (req, res) => {
     try {
-        const userId = req.user.id
-        const { name, description, banner_url, logo_url, channels } = req.body
+        const userId = req.session.userId // Use session ID from authMiddleware
+        const { name, description, banner_url, logo_url } = req.body
 
         if (!name) {
-            return res.status(400).json({
-                success: false,
-                error: 'Club name is required'
-            })
+            return res.status(400).json({ success: false, error: 'Club name is required' })
         }
 
-        // Create club
+        // Create club with 'pending' status
         const { data: club, error: clubError } = await supabase
             .from('clubs')
             .insert({
@@ -28,16 +52,15 @@ router.post('/', requireAuth, async (req, res) => {
                 description,
                 banner_url,
                 logo_url,
-                owner_id: userId
+                owner_id: userId,
+                status: 'pending' // Enforce approval flow
             })
             .select()
             .single()
 
-        if (clubError) {
-            throw new Error(`Failed to create club: ${clubError.message}`)
-        }
+        if (clubError) throw new Error(clubError.message)
 
-        // Add creator as owner in club_members
+        // Add creator as owner (will be effective once club is active)
         const { error: memberError } = await supabase
             .from('club_members')
             .insert({
@@ -47,48 +70,47 @@ router.post('/', requireAuth, async (req, res) => {
             })
 
         if (memberError) {
-            // Rollback: delete the club if member insertion fails
             await supabase.from('clubs').delete().eq('id', club.id)
-            throw new Error(`Failed to add owner to club: ${memberError.message}`)
+            throw new Error(memberError.message)
         }
 
-        // Create channels (custom or default)
-        const channelsToCreate = (channels && Array.isArray(channels) && channels.length > 0)
-            ? channels
-            : [
-                { name: 'general', description: 'General discussion', visibility: 'public' },
-                { name: 'announcements', description: 'Important announcements', visibility: 'public' },
-                { name: 'volunteers', description: 'Volunteer coordination', visibility: 'volunteer' }
-            ]
+        // Create default channels
+        const channels = [
+            { name: 'general', description: 'General discussion', visibility: 'public' },
+            { name: 'announcements', description: 'Important announcements', visibility: 'public' },
+            { name: 'volunteers', description: 'Volunteer coordination', visibility: 'volunteer' }
+        ]
 
-        const channelsToInsert = channelsToCreate.map(ch => ({
-            name: ch.name || 'channel',
-            description: ch.description || '',
-            visibility: ch.visibility || 'public',
-            club_id: club.id,
-            created_by: userId
-        }))
+        await supabase.from('channels').insert(
+            channels.map(ch => ({
+                ...ch,
+                club_id: club.id,
+                created_by: userId
+            }))
+        )
 
-        const { error: channelError } = await supabase
-            .from('channels')
-            .insert(channelsToInsert)
-
-        if (channelError) {
-            console.error('Failed to create default channels:', channelError)
-            // Don't fail the whole operation, just log the error
+        // NOTIFY ADMINS
+        const { data: admins } = await supabase.from('users').select('id').eq('role', 'college_admin')
+        if (admins && admins.length > 0) {
+            const notifications = admins.map(admin => ({
+                user_id: admin.id,
+                type: 'approval_request',
+                title: 'New Club Request',
+                message: `Club "${name}" requires approval.`,
+                related_id: club.id,
+                related_type: 'club'
+            }))
+            await supabase.from('notifications').insert(notifications)
         }
 
         res.status(201).json({
             success: true,
             data: club,
-            message: 'Club created successfully!'
+            message: 'Club request submitted! Pending admin approval.'
         })
     } catch (error) {
         console.error('Club creation error:', error)
-        res.status(500).json({
-            success: false,
-            error: error.message
-        })
+        res.status(500).json({ success: false, error: error.message })
     }
 })
 
@@ -99,27 +121,36 @@ router.post('/', requireAuth, async (req, res) => {
 router.get('/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params
+        const userId = req.session.userId
 
         const { data: club, error } = await supabase
             .from('clubs')
-            .select('*')
+            .select('*, owner:users(name, email)') // Join owner details
             .eq('id', id)
             .single()
 
-        if (error) {
-            throw new Error(`Failed to fetch club: ${error.message}`)
+        if (error || !club) {
+            return res.status(404).json({ success: false, error: 'Club not found' })
         }
 
-        res.json({
-            success: true,
-            data: club
-        })
+        // Helper to check if user is admin
+        const { data: user } = await supabase.from('users').select('role').eq('id', userId).single()
+        const isAdmin = user?.role === 'college_admin'
+
+        // Access Control: Only Owner or Admin can see non-active clubs
+        if (club.status !== 'active') {
+            if (!isAdmin && club.owner_id !== userId) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Club is pending approval or suspended.'
+                })
+            }
+        }
+
+        res.json({ success: true, data: club })
     } catch (error) {
         console.error('Club fetch error:', error)
-        res.status(500).json({
-            success: false,
-            error: error.message
-        })
+        res.status(500).json({ success: false, error: error.message })
     }
 })
 
@@ -129,27 +160,23 @@ router.get('/:id', requireAuth, async (req, res) => {
  */
 router.put('/:id', requireAuth, async (req, res) => {
     try {
-        const userId = req.user.id
+        const userId = req.session.userId
         const { id } = req.params
         const { name, description, banner_url, logo_url } = req.body
 
-        // Check if user is owner
-        const { data: membership } = await supabase
-            .from('club_members')
-            .select('role')
-            .eq('club_id', id)
-            .eq('user_id', userId)
+        // Verify ownership
+        const { data: club } = await supabase
+            .from('clubs')
+            .select('owner_id')
+            .eq('id', id)
             .single()
 
-        if (membership?.role !== 'owner') {
-            return res.status(403).json({
-                success: false,
-                error: 'Only club owners can update club details'
-            })
+        if (club?.owner_id !== userId) {
+            // Also check for 'college_admin'? Maybe. But request says owner updates.
+            return res.status(403).json({ success: false, error: 'Only the owner can update this club' })
         }
 
-        // Update club
-        const { data: club, error } = await supabase
+        const { data: updatedClub, error } = await supabase
             .from('clubs')
             .update({
                 name,
@@ -162,21 +189,15 @@ router.put('/:id', requireAuth, async (req, res) => {
             .select()
             .single()
 
-        if (error) {
-            throw new Error(`Failed to update club: ${error.message}`)
-        }
+        if (error) throw error
 
         res.json({
             success: true,
-            data: club,
-            message: 'Club updated successfully!'
+            data: updatedClub,
+            message: 'Club updated successfully'
         })
     } catch (error) {
-        console.error('Club update error:', error)
-        res.status(500).json({
-            success: false,
-            error: error.message
-        })
+        res.status(500).json({ success: false, error: error.message })
     }
 })
 
