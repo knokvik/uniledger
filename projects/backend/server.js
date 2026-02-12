@@ -21,6 +21,7 @@ import joinRequestsRoutes from './routes/join-requests.js'
 import paymentsRoutes from './routes/payments.js'
 import notificationsRoutes from './routes/notifications.js'
 import adminRoutes from './routes/adminRoutes.js'
+import requestsRoutes from './routes/requests.js'
 
 dotenv.config()
 
@@ -59,6 +60,7 @@ app.use('/api/admin', adminRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/channels', channelsRoutes)
 app.use('/api/members', membersRoutes)
+app.use('/api/requests', requestsRoutes)
 app.use('/api/clubs', clubsRoutes)
 app.use('/api/events', eventsRoutes)
 app.use('/api/messages', messagesRoutes)

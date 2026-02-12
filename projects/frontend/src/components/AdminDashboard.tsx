@@ -67,7 +67,7 @@ const AdminDashboard: React.FC = () => {
                     <p className="text-sm text-gray-500">System Oversight Dashboard</p>
                 </div>
                 <div className="flex gap-4">
-                    <button className="text-gray-600 hover:text-gray-900" onClick={() => navigate('/')}>
+                    <button className="text-gray-600 hover:text-gray-900" onClick={() => navigate('/dashboard')}>
                         View Site
                     </button>
                     <button
@@ -136,8 +136,8 @@ const TabButton = ({ label, active, onClick }: any) => (
     <button
         onClick={onClick}
         className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${active
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            ? 'border-blue-500 text-blue-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
     >
         {label}
@@ -152,12 +152,23 @@ const FilteredList = ({ status, onSelect }: { status: string, onSelect: (item: a
         const fetchItems = async () => {
             setLoading(true);
             try {
-                // Fetch Clubs
-                const clubsRes = await axios.get(`${API_URL}/api/admin/clubs?status=${status}`, { withCredentials: true });
-                // TODO: Fetch Events too and merge (omitted for brevity, focusing on clubs first as requested)
-                if (clubsRes.data.success) {
-                    setItems(clubsRes.data.data);
+                let data: any[] = [];
+                if (status === 'pending') {
+                    // Fetch from new Creation Requests API
+                    const [clubReqs, eventReqs] = await Promise.all([
+                        axios.get(`${API_URL}/api/admin/creation-requests/club`, { withCredentials: true }),
+                        axios.get(`${API_URL}/api/admin/creation-requests/event`, { withCredentials: true })
+                    ]);
+
+                    if (clubReqs.data.success) data = [...data, ...clubReqs.data.data.map((i: any) => ({ ...i, type: 'club' }))];
+                    if (eventReqs.data.success) data = [...data, ...eventReqs.data.data.map((i: any) => ({ ...i, type: 'event' }))];
+                } else {
+                    // Fetch Active/Suspended from existing APIs
+                    // Improving this to specific status endpoint if needed, but reusing getAllClubs for now
+                    const clubsRes = await axios.get(`${API_URL}/api/admin/clubs?status=${status}`, { withCredentials: true });
+                    if (clubsRes.data.success) data = clubsRes.data.data.map((i: any) => ({ ...i, type: 'club' }));
                 }
+                setItems(data);
             } catch (error) {
                 console.error("Error fetching items", error);
             } finally {
@@ -175,26 +186,28 @@ const FilteredList = ({ status, onSelect }: { status: string, onSelect: (item: a
             {items.map((item) => (
                 <div
                     key={item.id}
-                    onClick={() => onSelect(item, 'club')}
+                    onClick={() => onSelect(item, item.type || 'club')}
                     className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer overflow-hidden group"
                 >
                     <div className="h-32 bg-gray-100 relative">
                         {item.banner_url ? (
-                            <img src={item.banner_url} alt={item.name} className="w-full h-full object-cover" />
+                            <img src={item.banner_url} alt={item.name || item.title} className="w-full h-full object-cover" />
                         ) : (
-                            <div className="w-full h-full bg-gradient-to-r from-blue-100 to-indigo-100 flex items-center justify-center text-4xl">🏰</div>
+                            <div className="w-full h-full bg-gradient-to-r from-blue-100 to-indigo-100 flex items-center justify-center text-4xl">
+                                {item.type === 'event' ? '📅' : '🏰'}
+                            </div>
                         )}
                         <span className={`absolute top-2 right-2 px-2 py-1 text-xs font-bold rounded uppercase ${item.status === 'active' ? 'bg-green-100 text-green-800' :
-                                item.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                            item.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
                             }`}>
                             {item.status}
                         </span>
                     </div>
                     <div className="p-4">
-                        <h3 className="font-bold text-lg text-gray-900 mb-1 group-hover:text-blue-600 transition">{item.name}</h3>
+                        <h3 className="font-bold text-lg text-gray-900 mb-1 group-hover:text-blue-600 transition">{item.name || item.title}</h3>
                         <p className="text-sm text-gray-500 mb-3 line-clamp-2">{item.description || 'No description provided.'}</p>
                         <div className="flex items-center gap-2 text-xs text-gray-400 border-t pt-3">
-                            <span>👤 {item.owner?.name || item.owner?.email || 'Unknown Owner'}</span>
+                            <span>👤 {item.requested_by?.name || item.owner?.name || 'Unknown'}</span>
                             <span>📅 {new Date(item.created_at).toLocaleDateString()}</span>
                         </div>
                     </div>
@@ -210,21 +223,29 @@ const DetailView = ({ item, type, onBack }: { item: any, type: 'club' | 'event',
     const [detailTab, setDetailTab] = useState<'overview' | 'channels'>('overview');
     const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
 
-    // Fetch Channels
+    // Fetch Channels (Only if NOT pending - pending requests don't have channels yet)
     const { data: channels, isLoading: channelsLoading } = useChannels(type, item.id);
 
     // Fetch Messages if channel selected
     const { messages, isLoading: messagesLoading } = useMessages(selectedChannel);
 
     // Handle Status Change
-    const handleStatus = async (status: 'active' | 'suspended') => {
-        if (!window.confirm(`Are you sure you want to mark this as ${status}?`)) return;
+    const handleStatus = async (action: 'approve' | 'reject' | 'suspend' | 'reactivate') => {
+        if (!window.confirm(`Are you sure you want to ${action} this request?`)) return;
         try {
-            await axios.patch(`${API_URL}/api/admin/${type}s/${item.id}/status`, { status }, { withCredentials: true });
-            alert(`Status updated to ${status}`);
+            if (item.status === 'pending') {
+                // New Creation Request Flow
+                await axios.post(`${API_URL}/api/admin/creation-requests/${type}/${item.id}`, { action }, { withCredentials: true });
+            } else {
+                // Legacy Status Update Flow
+                const newStatus = action === 'suspend' ? 'suspended' : 'active';
+                await axios.patch(`${API_URL}/api/admin/${type}s/${item.id}/status`, { status: newStatus }, { withCredentials: true });
+            }
+            alert(`Action ${action} successful!`);
             onBack(); // Go back to list on change
-        } catch (error) {
-            alert('Failed to update status');
+        } catch (error: any) {
+            console.error('Action failed', error);
+            alert(`Failed to ${action}: ` + (error.response?.data?.error || error.message));
         }
     };
 
@@ -242,15 +263,15 @@ const DetailView = ({ item, type, onBack }: { item: any, type: 'club' | 'event',
                 <div className="flex gap-2">
                     {item.status === 'pending' && (
                         <>
-                            <button onClick={() => handleStatus('active')} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Approve</button>
-                            <button onClick={() => handleStatus('suspended')} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Reject</button>
+                            <button onClick={() => handleStatus('approve')} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Approve</button>
+                            <button onClick={() => handleStatus('reject')} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Reject</button>
                         </>
                     )}
                     {item.status === 'active' && (
-                        <button onClick={() => handleStatus('suspended')} className="bg-red-100 text-red-600 px-4 py-2 rounded hover:bg-red-200">Suspend</button>
+                        <button onClick={() => handleStatus('suspend')} className="bg-red-100 text-red-600 px-4 py-2 rounded hover:bg-red-200">Suspend</button>
                     )}
                     {item.status === 'suspended' && (
-                        <button onClick={() => handleStatus('active')} className="bg-green-100 text-green-600 px-4 py-2 rounded hover:bg-green-200">Reactivate</button>
+                        <button onClick={() => handleStatus('reactivate')} className="bg-green-100 text-green-600 px-4 py-2 rounded hover:bg-green-200">Reactivate</button>
                     )}
                 </div>
             </div>

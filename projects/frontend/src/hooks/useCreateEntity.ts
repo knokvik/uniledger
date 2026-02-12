@@ -5,7 +5,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 // Create Club Function
 const createClub = async (clubData: any) => {
-    const response = await axios.post(`${API_URL}/api/clubs`, clubData, {
+    const response = await axios.post(`${API_URL}/api/requests/club`, clubData, {
         withCredentials: true
     })
     return response.data
@@ -13,7 +13,7 @@ const createClub = async (clubData: any) => {
 
 // Create Event Function
 const createEvent = async (eventData: any) => {
-    const response = await axios.post(`${API_URL}/api/events`, eventData, {
+    const response = await axios.post(`${API_URL}/api/requests/event`, eventData, {
         withCredentials: true
     })
     return response.data

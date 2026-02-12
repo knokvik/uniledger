@@ -8,6 +8,7 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "db:deploy": "node scripts/deploy-schema.js",
+    "db:deploy-requests": "node scripts/deploy-requests-schema.js",
     "db:setup": "npm run db:deploy && node scripts/seed-admin.js"
   },
   "keywords": [

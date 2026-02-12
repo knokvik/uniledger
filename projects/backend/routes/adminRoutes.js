@@ -60,6 +60,56 @@ router.get('/overview', requireAuth, requireAdmin, async (req, res) => {
 });
 
 // Manage Clubs
+// --- Creation Requests ---
+
+/**
+ * GET /api/admin/creation-requests/:type
+ * type: 'club' or 'event'
+ */
+router.get('/creation-requests/:type', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { type } = req.params;
+        if (!['club', 'event'].includes(type)) return res.status(400).json({ success: false, error: 'Invalid type' });
+
+        const requests = await adminService.getCreationRequests(type);
+        res.json({ success: true, data: requests });
+    } catch (error) {
+        console.error('Error fetching requests:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * POST /api/admin/creation-requests/:type/:id
+ * Process request (approve/reject)
+ */
+router.post('/creation-requests/:type/:id', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { type, id } = req.params;
+        const { action } = req.body;
+        const adminId = req.session.userId;
+
+        if (!['approve', 'reject'].includes(action)) {
+            return res.status(400).json({ success: false, error: 'Invalid action' });
+        }
+
+        let result;
+        if (type === 'club') {
+            result = await adminService.processClubRequest(id, action, adminId);
+        } else if (type === 'event') {
+            result = await adminService.processEventRequest(id, action, adminId);
+        } else {
+            return res.status(400).json({ success: false, error: 'Invalid type' });
+        }
+
+        res.json({ success: true, message: `Request ${action}ed successfully`, data: result });
+    } catch (error) {
+        console.error('Error processing request:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- Legacy Club Management (Active/Suspended) ---
 router.get('/clubs', requireAuth, requireAdmin, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
