@@ -1,3 +1,6 @@
+import { setDefaultResultOrder } from 'node:dns'
+if (setDefaultResultOrder) setDefaultResultOrder('ipv4first')
+
 import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
@@ -14,6 +17,10 @@ import eventsRoutes from './routes/events.js'
 import messagesRoutes from './routes/messages.js'
 import searchRoutes from './routes/search.js'
 import profileRoutes from './routes/profile.js'
+import joinRequestsRoutes from './routes/join-requests.js'
+import paymentsRoutes from './routes/payments.js'
+import notificationsRoutes from './routes/notifications.js'
+import adminRoutes from './routes/adminRoutes.js'
 
 dotenv.config()
 
@@ -48,6 +55,7 @@ app.use(session({
 
 // Routes
 app.use('/api/auth', authRoutes)
+app.use('/api/admin', adminRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/channels', channelsRoutes)
 app.use('/api/members', membersRoutes)
@@ -56,6 +64,9 @@ app.use('/api/events', eventsRoutes)
 app.use('/api/messages', messagesRoutes)
 app.use('/api/search', searchRoutes)
 app.use('/api/profile', profileRoutes)
+app.use('/api/join-requests', joinRequestsRoutes)
+app.use('/api/payments', paymentsRoutes)
+app.use('/api/notifications', notificationsRoutes)
 
 // Test page
 app.get('/test', (req, res) => {
@@ -74,43 +85,21 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       health: '/health',
-      test: '/test',
-      auth: {
-        signup: 'POST /api/auth/signup',
-        login: 'POST /api/auth/login',
-        logout: 'POST /api/auth/logout',
-        me: 'GET /api/auth/me'
-      },
-      dashboard: {
-        getData: 'GET /api/dashboard'
-      },
-      channels: {
-        getChannels: 'GET /api/channels/:type/:id (type: club|event)'
-      },
-      members: {
-        getMembers: 'GET /api/members/:type/:id (type: club|event)'
-      },
-      clubs: {
-        create: 'POST /api/clubs',
-        get: 'GET /api/clubs/:id',
-        update: 'PUT /api/clubs/:id'
-      },
-      events: {
-        create: 'POST /api/events',
-        get: 'GET /api/events/:id',
-        update: 'PUT /api/events/:id'
-      }
+      auth: '/api/auth',
+      admin: '/api/admin',
+      dashboard: '/api/dashboard'
     }
   })
 })
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack)
-  res.status(500).json({
+  console.error('Server Error:', err) // Log full error object
+  res.status(err.status || 500).json({
     success: false,
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    message: err.message || 'Internal Server Error',
+    error: err.name || 'Error',
+    details: process.env.NODE_ENV === 'development' ? err.stack : undefined
   })
 })
 
