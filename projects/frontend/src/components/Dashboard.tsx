@@ -103,7 +103,13 @@ const Dashboard = () => {
   }
 
   // Fetch dashboard data (clubs and events)
-  const { data: dashboardData, isLoading: isDashboardLoading, error: dashboardError } = useDashboardData()
+  const {
+    data: dashboardData,
+    isLoading: isDashboardLoading,
+    isFetching: isDashboardFetching,
+    error: dashboardError,
+    refetch
+  } = useDashboardData()
 
   // Determine current club/event type and ID
   const currentType = activeSection.startsWith('club-') ? 'club' : activeSection.startsWith('event-') ? 'event' : null
@@ -213,20 +219,20 @@ const Dashboard = () => {
             </button>
           </div>
 
-          {/* Loading State */}
-          {isDashboardLoading && (
-            <div className="flex items-center justify-center py-8">
-              <ThreeDotLoader />
-            </div>
-          )}
-
           {/* My Clubs Section */}
-          {!isDashboardLoading && (
-            <div className="mb-6">
-              <div className="flex items-center justify-between px-4 mb-3">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  My Clubs {clubs.length > 0 && `(${clubs.length})`}
-                </p>
+          <div className="mb-6">
+            <div className="flex items-center justify-between px-4 mb-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                My Clubs {clubs.length > 0 && `(${clubs.length})`}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => refetch()}
+                  className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition"
+                  title="Refresh Clubs"
+                >
+                  <span className="text-xs">🔄</span>
+                </button>
                 <button
                   onClick={() => openCreateModal('club')}
                   className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition"
@@ -235,138 +241,148 @@ const Dashboard = () => {
                   <span className="text-xl leading-none pb-1">+</span>
                 </button>
               </div>
-              {clubs.length > 0 ? (
-                <div className="space-y-1">
-                  {clubs.map((club: any) => {
-                    // Log club data to console
-                    console.log('Club:', {
-                      id: club.id,
-                      name: club.name,
-                      banner_url: club.banner_url,
-                      user_role: club.user_role,
-                      member_count: club.member_count,
-                      channel_count: club.channel_count,
-                      created_at: club.created_at
-                    })
-
-                    return (
-                      <button
-                        key={club.id}
-                        onClick={() => {
-                          setActiveSection(`club-${club.id}`)
-                          setSelectedChannel(null) // Reset, will be set by useEffect
-                          console.log('Clicked club:', club.id, club.name)
-                          console.log('User role:', club.user_role)
-                          console.log('Total channels:', club.channel_count)
-                        }}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${activeSection === `club-${club.id}`
-                          ? "bg-blue-50 text-blue-600"
-                          : "text-gray-700 hover:bg-gray-50"
-                          }`}
-                      >
-                        {club.banner_url ? (
-                          <img src={club.banner_url} alt={club.name} className="w-8 h-8 rounded object-cover" />
-                        ) : (
-                          <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-400 rounded flex items-center justify-center text-white text-sm font-bold">
-                            {club.name[0]}
-                          </div>
-                        )}
-                        <div className="flex-1 text-left">
-                          <p className="text-sm font-medium truncate">{club.name}</p>
-                          <p className="text-xs text-gray-500">Owner</p>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="px-4 py-3 text-center bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-500">No clubs yet</p>
-                </div>
-              )}
             </div>
-          )}
+
+            {(isDashboardLoading || isDashboardFetching) ? (
+              <div className="flex items-center justify-center py-4">
+                <ThreeDotLoader />
+              </div>
+            ) : clubs.length > 0 ? (
+              <div className="space-y-1">
+                {clubs.map((club: any) => {
+                  // Log club data to console
+                  console.log('Club:', {
+                    id: club.id,
+                    name: club.name,
+                    banner_url: club.banner_url,
+                    logo_url: club.logo_url,
+                    user_role: club.user_role,
+                    member_count: club.member_count,
+                    channel_count: club.channel_count,
+                    created_at: club.created_at
+                  })
+
+                  return (
+                    <button
+                      key={club.id}
+                      onClick={() => {
+                        setActiveSection(`club-${club.id}`)
+                        setSelectedChannel(null) // Reset, will be set by useEffect
+                        console.log('Clicked club:', club.id, club.name)
+                        console.log('User role:', club.user_role)
+                        console.log('Total channels:', club.channel_count)
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${activeSection === `club-${club.id}`
+                        ? "bg-blue-50 text-blue-600"
+                        : "text-gray-700 hover:bg-gray-50"
+                        }`}
+                    >
+                      {club.logo_url ? (
+                        <img src={club.logo_url} alt={club.name} className="w-8 h-8 rounded object-cover" />
+                      ) : (
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-400 rounded flex items-center justify-center text-white text-sm font-bold">
+                          {club.name[0]}
+                        </div>
+                      )}
+                      <div className="flex-1 text-left">
+                        <p className="text-sm font-medium truncate">{club.name}</p>
+                        <p className="text-xs text-gray-500">Owner</p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="px-4 py-3 text-center bg-gray-50 rounded-lg">
+                <p className="text-xs text-gray-500">No clubs yet</p>
+              </div>
+            )}
+          </div>
 
           {/* My Events Section */}
-          {!isDashboardLoading && (
-            <div className="mb-6">
-              <div className="flex items-center justify-between px-4 mb-3">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  My Events {events.length > 0 && `(${events.length})`}
-                </p>
-                <button
-                  onClick={() => openCreateModal('event')}
-                  className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition"
-                  title="Create New Event"
-                >
-                  <span className="text-xl leading-none pb-1">+</span>
-                </button>
-              </div>
-              {events.length > 0 ? (
-                <div className="space-y-1">
-                  {events.map((event: any) => {
-                    // Log event data to console
-                    console.log('Event:', {
-                      id: event.id,
-                      title: event.title,
-                      banner_url: event.banner_url,
-                      event_date: event.event_date,
-                      club_id: event.club_id,
-                      club_name: event.club_name,
-                      sponsor_name: event.sponsor_name,
-                      user_role: event.user_role,
-                      participant_count: event.participant_count,
-                      channel_count: event.channel_count,
-                      created_at: event.created_at
-                    })
-
-                    return (
-                      <button
-                        key={event.id}
-                        onClick={() => {
-                          setActiveSection(`event-${event.id}`)
-                          setSelectedChannel(null) // Reset, will be set by useEffect
-                          console.log('Clicked event:', event.id, event.title)
-                          console.log('User role:', event.user_role)
-                          console.log('Total channels:', event.channel_count)
-                        }}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${activeSection === `event-${event.id}`
-                          ? "bg-blue-50 text-blue-600"
-                          : "text-gray-700 hover:bg-gray-50"
-                          }`}
-                      >
-                        {event.banner_url ? (
-                          <img src={event.banner_url} alt={event.title} className="w-8 h-8 rounded object-cover" />
-                        ) : (
-                          <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-400 rounded flex items-center justify-center text-white text-sm font-bold">
-                            {event.title[0]}
-                          </div>
-                        )}
-                        <div className="flex-1 text-left">
-                          <p className="text-sm font-medium truncate">{event.title}</p>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            {event.club_name ? (
-                              <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{event.club_name}</span>
-                            ) : event.sponsor_name ? (
-                              <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">{event.sponsor_name}</span>
-                            ) : null}
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="px-4 py-3 text-center bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-500">No events yet</p>
-                </div>
-              )}
+          <div className="mb-6">
+            <div className="flex items-center justify-between px-4 mb-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                My Events {events.length > 0 && `(${events.length})`}
+              </p>
+              <button
+                onClick={() => openCreateModal('event')}
+                className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition"
+                title="Create New Event"
+              >
+                <span className="text-xl leading-none pb-1">+</span>
+              </button>
             </div>
-          )}
-        </nav>
+
+            {isDashboardLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <ThreeDotLoader />
+              </div>
+            ) : events.length > 0 ? (
+              <div className="space-y-1">
+                {events.map((event: any) => {
+                  // Log event data to console
+                  console.log('Event:', {
+                    id: event.id,
+                    title: event.title,
+                    banner_url: event.banner_url,
+                    event_date: event.event_date,
+                    club_id: event.club_id,
+                    club_name: event.club_name,
+                    sponsor_name: event.sponsor_name,
+                    user_role: event.user_role,
+                    participant_count: event.participant_count,
+                    channel_count: event.channel_count,
+                    created_at: event.created_at
+                  })
+
+                  return (
+                    <button
+                      key={event.id}
+                      onClick={() => {
+                        setActiveSection(`event-${event.id}`)
+                        setSelectedChannel(null) // Reset, will be set by useEffect
+                        console.log('Clicked event:', event.id, event.title)
+                        console.log('User role:', event.user_role)
+                        console.log('Total channels:', event.channel_count)
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition ${activeSection === `event-${event.id}`
+                        ? "bg-blue-50 text-blue-600"
+                        : "text-gray-700 hover:bg-gray-50"
+                        }`}
+                    >
+                      {event.banner_url ? (
+                        <img src={event.banner_url} alt={event.title} className="w-8 h-8 rounded object-cover" />
+                      ) : (
+                        <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-400 rounded flex items-center justify-center text-white text-sm font-bold">
+                          {event.title[0]}
+                        </div>
+                      )}
+                      <div className="flex-1 text-left">
+                        <p className="text-sm font-medium truncate">{event.title}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {event.club_name ? (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{event.club_name}</span>
+                          ) : event.sponsor_name ? (
+                            <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">{event.sponsor_name}</span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="px-4 py-3 text-center bg-gray-50 rounded-lg">
+                <p className="text-xs text-gray-500">No events yet</p>
+              </div>
+            )}
+          </div>
+
+        </nav >
 
         {/* User Profile */}
-        <div className="p-4 border-t border-gray-200">
+        < div className="p-4 border-t border-gray-200" >
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center overflow-hidden">
               {user?.avatar_url ? (
@@ -397,160 +413,162 @@ const Dashboard = () => {
           >
             Logout
           </button>
-        </div>
-      </aside>
+        </div >
+      </aside >
 
       {/* Secondary Sidebar - Channels (Discord-like) */}
-      {(activeSection.startsWith('club-') || activeSection.startsWith('event-')) && (
-        <aside className="w-60 bg-gray-100 border-r border-gray-200 flex flex-col flex-shrink-0">
-          {/* Channel Header */}
-          {(() => {
-            const isClub = activeSection.startsWith('club-')
-            const id = activeSection.replace(isClub ? 'club-' : 'event-', '')
-            const item = isClub ? clubs.find((c: any) => c.id === id) : events.find((e: any) => e.id === id)
-            const name = isClub ? item?.name : item?.title
-            const banner = item?.banner_url
+      {
+        (activeSection.startsWith('club-') || activeSection.startsWith('event-')) && (
+          <aside className="w-60 bg-gray-100 border-r border-gray-200 flex flex-col flex-shrink-0">
+            {/* Channel Header */}
+            {(() => {
+              const isClub = activeSection.startsWith('club-')
+              const id = activeSection.replace(isClub ? 'club-' : 'event-', '')
+              const item = isClub ? clubs.find((c: any) => c.id === id) : events.find((e: any) => e.id === id)
+              const name = isClub ? item?.name : item?.title
+              const banner = item?.banner_url
 
-            if (banner) {
-              return (
-                <div className="relative h-28 bg-cover bg-center shrink-0 group" style={{ backgroundImage: `url(${banner})` }}>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-4">
-                    <div className="flex items-end justify-between text-white w-full">
-                      <div className="min-w-0 pr-2 flex-1">
-                        <h3 className="font-bold text-lg leading-tight truncate drop-shadow-md text-white">{name}</h3>
-                        <p className="text-[10px] font-medium text-gray-300 uppercase tracking-wide mt-0.5">
-                          {isClub ? 'Club' : 'Event'} Channels
-                        </p>
+              if (banner) {
+                return (
+                  <div className="relative h-28 bg-cover bg-center shrink-0 group" style={{ backgroundImage: `url(${banner})` }}>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-4">
+                      <div className="flex items-end justify-between text-white w-full">
+                        <div className="min-w-0 pr-2 flex-1">
+                          <h3 className="font-bold text-lg leading-tight truncate drop-shadow-md text-white">{name}</h3>
+                          <p className="text-[10px] font-medium text-gray-300 uppercase tracking-wide mt-0.5">
+                            {isClub ? 'Club' : 'Event'} Channels
+                          </p>
+                        </div>
+                        {item?.user_role === 'owner' && (
+                          <button
+                            onClick={() => openEditModal(item, isClub ? 'club' : 'event')}
+                            className="p-1.5 bg-black/20 hover:bg-black/40 backdrop-blur-md rounded text-white transition opacity-0 group-hover:opacity-100"
+                            title="Edit Settings"
+                          >
+                            <span className="text-sm leading-none">⚙️</span>
+                          </button>
+                        )}
                       </div>
-                      {item?.user_role === 'owner' && (
-                        <button
-                          onClick={() => openEditModal(item, isClub ? 'club' : 'event')}
-                          className="p-1.5 bg-black/20 hover:bg-black/40 backdrop-blur-md rounded text-white transition opacity-0 group-hover:opacity-100"
-                          title="Edit Settings"
-                        >
-                          <span className="text-sm leading-none">⚙️</span>
-                        </button>
-                      )}
                     </div>
                   </div>
-                </div>
-              )
-            }
+                )
+              }
 
-            return (
-              <div className="p-4 border-b border-gray-200 bg-white flex items-start justify-between shrink-0">
-                <div className="min-w-0 pr-2 flex-1">
-                  <h3 className="font-semibold text-gray-800 truncate">{name || (isClub ? 'Club' : 'Event')}</h3>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {isClub ? 'Club' : 'Event'} channels
-                  </p>
-                </div>
-                {item?.user_role === 'owner' && (
-                  <button
-                    onClick={() => openEditModal(item, isClub ? 'club' : 'event')}
-                    className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600 transition"
-                    title="Edit Settings"
-                  >
-                    <span className="text-lg leading-none">⚙️</span>
-                  </button>
-                )}
-              </div>
-            )
-          })()}
-
-          {/* Channels List */}
-          <nav className="flex-1 p-3 overflow-y-auto">
-            {isChannelsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <ThreeDotLoader />
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between px-2 mb-2 group">
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Text Channels</span>
-                  {(() => {
-                    const isClub = activeSection.startsWith('club-')
-                    const id = activeSection.replace(isClub ? 'club-' : 'event-', '')
-                    const item = isClub ? clubs.find((c: any) => c.id === id) : events.find((e: any) => e.id === id)
-                    if (item?.user_role === 'owner' || item?.owner_id === user?.id) {
-                      return <button onClick={handleCreateChannel} className="text-gray-400 hover:text-gray-600 font-bold text-lg leading-none transition-colors" title="Create Channel">+</button>
-                    }
-                    return null
-                  })()}
-                </div>
-
-                {channels && channels.length > 0 ? (
-                  <div className="space-y-1">
-                    {channels.map((channel: any) => (
-                      <button
-                        key={channel.id}
-                        onClick={() => setSelectedChannel(channel.id)}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition group relative ${selectedChannel === channel.id
-                          ? "bg-white text-gray-900 shadow-sm"
-                          : "text-gray-700 hover:bg-gray-200"
-                          }`}
-                      >
-                        <span className="text-gray-500 text-lg">#</span>
-                        <span className="text-sm font-medium truncate flex-1 text-left">{channel.name}</span>
-
-                        {channel.visibility !== 'public' && (
-                          <span className="text-[10px] uppercase font-bold bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded ml-2">
-                            {channel.visibility === 'volunteer' ? 'Vol' : 'Own'}
-                          </span>
-                        )}
-
-                        {(() => {
-                          const isClub = activeSection.startsWith('club-')
-                          const id = activeSection.replace(isClub ? 'club-' : 'event-', '')
-                          const item = isClub ? clubs.find((c: any) => c.id === id) : events.find((e: any) => e.id === id)
-                          if (item?.user_role === 'owner' || item?.owner_id === user?.id) {
-                            return (
-                              <span
-                                onClick={(e) => handleDeleteChannel(e, channel.id)}
-                                className="ml-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
-                                title="Delete Channel"
-                              >
-                                🗑
-                              </span>
-                            )
-                          }
-                          return null
-                        })()}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-400 text-xs italic">
-                    No channels available
-                  </div>
-                )}
-              </>
-            )}
-          </nav>
-
-          {/* Settings Tab (Owner Only) */}
-          {(() => {
-            const isClub = activeSection.startsWith('club-')
-            const id = activeSection.replace(isClub ? 'club-' : 'event-', '')
-            const item = isClub ? clubs.find((c: any) => c.id === id) : events.find((e: any) => e.id === id)
-
-            if (item?.user_role === 'owner' || item?.owner_id === user?.id) {
               return (
-                <div className="p-3 border-t border-gray-200 bg-gray-50 mt-auto">
-                  <button
-                    onClick={() => openEditModal(item, isClub ? 'club' : 'event')}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg shadow-sm transition group"
-                  >
-                    <span className="group-hover:rotate-45 transition-transform duration-300">⚙️</span>
-                    <span className="font-semibold text-sm">Settings</span>
-                  </button>
+                <div className="p-4 border-b border-gray-200 bg-white flex items-start justify-between shrink-0">
+                  <div className="min-w-0 pr-2 flex-1">
+                    <h3 className="font-semibold text-gray-800 truncate">{name || (isClub ? 'Club' : 'Event')}</h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {isClub ? 'Club' : 'Event'} channels
+                    </p>
+                  </div>
+                  {item?.user_role === 'owner' && (
+                    <button
+                      onClick={() => openEditModal(item, isClub ? 'club' : 'event')}
+                      className="p-1.5 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600 transition"
+                      title="Edit Settings"
+                    >
+                      <span className="text-lg leading-none">⚙️</span>
+                    </button>
+                  )}
                 </div>
               )
-            }
-            return null
-          })()}
-        </aside>
-      )}
+            })()}
+
+            {/* Channels List */}
+            <nav className="flex-1 p-3 overflow-y-auto">
+              {isChannelsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <ThreeDotLoader />
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between px-2 mb-2 group">
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Text Channels</span>
+                    {(() => {
+                      const isClub = activeSection.startsWith('club-')
+                      const id = activeSection.replace(isClub ? 'club-' : 'event-', '')
+                      const item = isClub ? clubs.find((c: any) => c.id === id) : events.find((e: any) => e.id === id)
+                      if (item?.user_role === 'owner' || item?.owner_id === user?.id) {
+                        return <button onClick={handleCreateChannel} className="text-gray-400 hover:text-gray-600 font-bold text-lg leading-none transition-colors" title="Create Channel">+</button>
+                      }
+                      return null
+                    })()}
+                  </div>
+
+                  {channels && channels.length > 0 ? (
+                    <div className="space-y-1">
+                      {channels.map((channel: any) => (
+                        <button
+                          key={channel.id}
+                          onClick={() => setSelectedChannel(channel.id)}
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition group relative ${selectedChannel === channel.id
+                            ? "bg-white text-gray-900 shadow-sm"
+                            : "text-gray-700 hover:bg-gray-200"
+                            }`}
+                        >
+                          <span className="text-gray-500 text-lg">#</span>
+                          <span className="text-sm font-medium truncate flex-1 text-left">{channel.name}</span>
+
+                          {channel.visibility !== 'public' && (
+                            <span className="text-[10px] uppercase font-bold bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded ml-2">
+                              {channel.visibility === 'volunteer' ? 'Vol' : 'Own'}
+                            </span>
+                          )}
+
+                          {(() => {
+                            const isClub = activeSection.startsWith('club-')
+                            const id = activeSection.replace(isClub ? 'club-' : 'event-', '')
+                            const item = isClub ? clubs.find((c: any) => c.id === id) : events.find((e: any) => e.id === id)
+                            if (item?.user_role === 'owner' || item?.owner_id === user?.id) {
+                              return (
+                                <span
+                                  onClick={(e) => handleDeleteChannel(e, channel.id)}
+                                  className="ml-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                  title="Delete Channel"
+                                >
+                                  🗑
+                                </span>
+                              )
+                            }
+                            return null
+                          })()}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-400 text-xs italic">
+                      No channels available
+                    </div>
+                  )}
+                </>
+              )}
+            </nav>
+
+            {/* Settings Tab (Owner Only) */}
+            {(() => {
+              const isClub = activeSection.startsWith('club-')
+              const id = activeSection.replace(isClub ? 'club-' : 'event-', '')
+              const item = isClub ? clubs.find((c: any) => c.id === id) : events.find((e: any) => e.id === id)
+
+              if (item?.user_role === 'owner' || item?.owner_id === user?.id) {
+                return (
+                  <div className="p-3 border-t border-gray-200 bg-gray-50 mt-auto">
+                    <button
+                      onClick={() => openEditModal(item, isClub ? 'club' : 'event')}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-lg shadow-sm transition group"
+                    >
+                      <span className="group-hover:rotate-45 transition-transform duration-300">⚙️</span>
+                      <span className="font-semibold text-sm">Settings</span>
+                    </button>
+                  </div>
+                )
+              }
+              return null
+            })()}
+          </aside>
+        )
+      }
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
@@ -1200,14 +1218,16 @@ const Dashboard = () => {
       </main>
 
       {/* Loading Overlay */}
-      {loading && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 text-center">
-            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-800 font-medium">Connecting wallet...</p>
+      {
+        loading && (
+          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 text-center">
+              <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-800 font-medium">Connecting wallet...</p>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Create Entity Modal */}
       <CreateEntityModal
@@ -1235,7 +1255,7 @@ const Dashboard = () => {
         onClose={() => setIsProfileSettingsOpen(false)}
         user={user}
       />
-    </div>
+    </div >
   )
 }
 

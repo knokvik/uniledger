@@ -8,6 +8,16 @@ interface CreateEntityModalProps {
     userClubs?: any[]
 }
 
+// Helper: Check if image URL is valid
+const validateImage = (url: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+        const img = new Image()
+        img.src = url
+        img.onload = () => resolve(true)
+        img.onerror = () => resolve(false)
+    })
+}
+
 const CreateEntityModal: React.FC<CreateEntityModalProps> = ({ isOpen, onClose, type, userClubs = [] }) => {
     const { createClub, createEvent } = useCreateEntity()
     const [loading, setLoading] = useState(false)
@@ -67,12 +77,45 @@ const CreateEntityModal: React.FC<CreateEntityModalProps> = ({ isOpen, onClose, 
         e.preventDefault()
         setLoading(true)
         setError('')
+        if (formData.channels.length === 0) {
+            setError('At least one channel is required')
+            setLoading(false)
+            return
+        }
+
+        // Validate Word Count
+        const wordCount = formData.description.trim().split(/\s+/).filter(Boolean).length
+        if (wordCount > 100) {
+            setError(`Description is too long (${wordCount}/100 words). Please shorten it.`)
+            setLoading(false)
+            return
+        }
+
+        // Validate Images
+        if (formData.logo_url) {
+            const isValid = await validateImage(formData.logo_url)
+            if (!isValid) {
+                setError('❌ Invalid Logo URL: Image could not be loaded')
+                setLoading(false)
+                return
+            }
+        }
+
+        if (formData.banner_url) {
+            const isValid = await validateImage(formData.banner_url)
+            if (!isValid) {
+                setError('❌ Invalid Banner URL: Image could not be loaded')
+                setLoading(false)
+                return
+            }
+        }
+
         try {
             await createClub.mutateAsync({
                 name: formData.name,
                 description: formData.description,
-                banner_url: formData.banner_url || null,
-                logo_url: formData.logo_url || null,
+                banner_url: formData.banner_url,
+                logo_url: formData.logo_url,
                 channels: formData.channels
             })
             onClose()
@@ -95,6 +138,16 @@ const CreateEntityModal: React.FC<CreateEntityModalProps> = ({ isOpen, onClose, 
             setError('⚠️ Wallet address is required for paid events')
             setLoading(false)
             return
+        }
+
+        // Validate Banner Image (if provided)
+        if (formData.banner_url) {
+            const isValid = await validateImage(formData.banner_url)
+            if (!isValid) {
+                setError('❌ Invalid Banner URL: Image could not be loaded')
+                setLoading(false)
+                return
+            }
         }
 
         try {
@@ -184,35 +237,49 @@ const CreateEntityModal: React.FC<CreateEntityModalProps> = ({ isOpen, onClose, 
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <label className="block text-sm font-medium text-gray-700">Description *</label>
+                                            <span className={`text-xs ${formData.description.trim().split(/\s+/).filter(Boolean).length > 100
+                                                ? 'text-red-500 font-bold'
+                                                : 'text-gray-400'
+                                                }`}>
+                                                {formData.description.trim().split(/\s+/).filter(Boolean).length}/100 words
+                                            </span>
+                                        </div>
                                         <textarea
                                             name="description"
                                             value={formData.description}
                                             onChange={handleChange}
+                                            required
                                             rows={3}
-                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 outline-none ${formData.description.trim().split(/\s+/).filter(Boolean).length > 100
+                                                ? 'border-red-300 focus:ring-red-500'
+                                                : 'border-gray-200 focus:ring-blue-500'
+                                                }`}
                                             placeholder="What is this club about?"
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Logo URL</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Logo URL *</label>
                                         <input
                                             type="text"
                                             name="logo_url"
                                             value={formData.logo_url}
                                             onChange={handleChange}
+                                            required
                                             className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                             placeholder="https://..."
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Banner URL</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Banner URL *</label>
                                         <input
                                             type="text"
                                             name="banner_url"
                                             value={formData.banner_url}
                                             onChange={handleChange}
+                                            required
                                             className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                                             placeholder="https://..."
                                         />

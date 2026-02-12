@@ -38,10 +38,31 @@ router.get('/', async (req, res) => {
 router.post('/', requireAuth, async (req, res) => {
     try {
         const userId = req.session.userId // Use session ID from authMiddleware
-        const { name, description, banner_url, logo_url } = req.body
+        const { name, description, banner_url, logo_url, channels } = req.body
 
-        if (!name) {
-            return res.status(400).json({ success: false, error: 'Club name is required' })
+        // Validation: All fields are mandatory
+        if (!name || !description || !banner_url || !logo_url) {
+            return res.status(400).json({
+                success: false,
+                error: 'All fields (Name, Description, Banner URL, Logo URL) are required'
+            })
+        }
+
+        // Validation: At least one channel required
+        if (!channels || !Array.isArray(channels) || channels.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'At least one channel is required'
+            })
+        }
+
+        // Validation: Description Word Limit
+        const wordCount = description.trim().split(/\s+/).filter(Boolean).length
+        if (wordCount > 100) {
+            return res.status(400).json({
+                success: false,
+                error: `Description exceeds the 100-word limit (Current: ${wordCount} words)`
+            })
         }
 
         // Create club with 'pending' status
@@ -74,16 +95,12 @@ router.post('/', requireAuth, async (req, res) => {
             throw new Error(memberError.message)
         }
 
-        // Create default channels
-        const channels = [
-            { name: 'general', description: 'General discussion', visibility: 'public' },
-            { name: 'announcements', description: 'Important announcements', visibility: 'public' },
-            { name: 'volunteers', description: 'Volunteer coordination', visibility: 'volunteer' }
-        ]
-
+        // Create channels provided by user
         await supabase.from('channels').insert(
             channels.map(ch => ({
-                ...ch,
+                name: ch.name,
+                description: ch.description || '',
+                visibility: ch.visibility || 'public',
                 club_id: club.id,
                 created_by: userId
             }))
