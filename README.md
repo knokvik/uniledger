@@ -1,7 +1,6 @@
 <div align="center">
 
 <h1 style="margin-bottom:2px">
-  <span style="background:linear-gradient(135deg,#2563eb,#1e40af);color:white;padding:10px 16px;border-radius:10px;font-weight:700;">U</span>
   UniLedger
 </h1>
 
