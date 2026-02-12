@@ -2,7 +2,7 @@
 
 <img width="240" height="63" alt="uniledger" src="https://github.com/user-attachments/assets/eb3b6a94-2917-4a86-b46e-cdd6217ae982" />
 
-### Decentralized Campus Clubs, Events & Treasury Management Platform
+### Web3-Powered Decentralized Campus Governance, Events & Treasury Protocol
 
 <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
 <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" />
@@ -13,285 +13,274 @@
 
 <br/>
 
-[Features](#-key-features) • 
-[Architecture](#-architecture-overview) • 
-[Installation](#-installation) • 
-[Contributing](#-contributing) • 
-[License](#-license)
+Hybrid Governance + On-Chain Finance + NFT Infrastructure
+
+[Features](#-key-features) •
+[Web3 Layer](#-web3-layer) •
+[Architecture](#-architecture-overview) •
+[Installation](#-installation) •
+[Deployment](#-deployment)
 
 </div>
 
 ---
 
-## 📸 Visual Preview
+# 🎯 Problem Statement
 
-View UI screenshots, admin dashboard flows, event creation screens, and payment workflows here:
+College ecosystems often struggle with:
 
-🔗 **[View Screenshots & Design Files](https://drive.google.com/drive/folders/1ydFeoI0MHMEVCit9Q6HxQrXEkrhIKAtV?usp=sharing)**
+- Manual event approvals  
+- Financial opacity in club treasuries  
+- Cash-based reconciliation issues  
+- Fake payment confirmations  
+- No verifiable proof of participation  
+- Weak administrative oversight  
 
-## 📋 Table of Contents
+Traditional solutions rely on centralized databases and spreadsheets.
 
-- [Problem Statement](#-problem-statement)
-- [Core Vision](#-core-vision)
-- [Key Features](#-key-features)
-- [What Makes UniLedger Unique](#-what-makes-uniledger-unique)
-- [Architecture Overview](#️-architecture-overview)
-- [Database Design](#-database-design)
-- [Security Model](#-security-model)
-- [Installation](#-installation)
-- [Use Cases](#-use-cases)
-- [Future Enhancements](#-future-enhancements)
-- [Scalability Strategy](#-scalability-strategy)
-- [Deployment](#-deployment)
-- [Industry Positioning](#-industry-positioning)
-- [Contributing](#-contributing)
-- [License](#-license)
+**UniLedger solves this by combining institutional governance with decentralized blockchain verification.**
 
 ---
 
-## 🎯 Problem Statement
+# 🚀 Core Vision
 
-College ecosystems often suffer from critical operational challenges:
+To build a **Campus Operating System** that merges:
 
-- **Manual Event Approvals** – Fragmented coordination and approval workflows
-- **Financial Opacity** – Lack of transparency in club and event treasuries
-- **Reconciliation Issues** – Cash-based ticketing with poor accountability
-- **No Proof of Participation** – No verifiable records of attendance or contribution
-- **Inefficient Tracking** – Poor volunteer and membership management systems
-- **Limited Oversight** – Weak administrative visibility into activities
-
-**Existing solutions** rely heavily on centralized spreadsheets, messaging apps, and payment gateways, leading to inconsistencies, fraud risks, and trust issues.
-
-**UniLedger solves this** by introducing **structured governance with decentralized financial verification**.
+✅ Role-based governance  
+✅ Blockchain-verified payments  
+✅ NFT-based ticketing  
+✅ Smart escrow crowdfunding  
+✅ Transparent treasury monitoring  
+✅ Real-time collaboration  
 
 ---
 
-## 🚀 Core Vision
 
-To build a **structured, role-based campus operating system** that combines:
-
-✅ **Centralized governance** (admin approvals, oversight)  
-✅ **Decentralized financial verification** (Algorand blockchain)  
-✅ **Real-time collaboration** (channels, notifications)  
-✅ **Transparent treasury visibility**  
-✅ **Scalable event infrastructure**
-
----
-
-## 🔑 Key Features
-
-### 1. **Role-Based Governance (RBAC)**
-
-Structured permission system with four core roles:
-
-#### 🔵 **College Admin**
-- Approves clubs and events
-- Views platform insights (read-only oversight)
-- Monitors treasury and activity
-- Controls lifecycle (suspend/cancel)
-
-#### 🟢 **Club Owner / Event Organizer**
-- Creates and manages clubs
-- Creates events with ticket pricing
-- Manages channels and members
-- Oversees participants and volunteers
-
-#### 🟡 **Volunteer**
-- Access to limited management channels
-- Entry scanning for events
-- Participation tracking
-
-#### ⚪ **Member / Participant**
-- Join clubs (request-based workflow)
-- Purchase event tickets
-- Participate in discussions
-- View club activities
-
----
-
-### 2. **Club Infrastructure**
-
-Each club provides:
-
-- ✅ Structured membership system
-- ✅ Join request workflow (pending → approved/rejected)
-- ✅ Multiple channels (Discord-like structure)
-- ✅ Role-based visibility per channel
-- ✅ Treasury tracking
-- ✅ Notifications system
-
-> **Note:** Clubs must be approved by college admin before becoming active.
-
----
-
-### 3. **Event Management System**
-
-Comprehensive event support:
-
-- ✅ Independent or club-based creation
-- ✅ Ticket pricing logic
-- ✅ Wallet-based payment integration
-- ✅ Participant tracking
-- ✅ Role-based event access
-- ✅ Channel-based discussions
-- ✅ Volunteer moderation
-
-> **Note:** Event creation requests must be approved by admin.
-
----
-
-### 4. **Decentralized Ticketing & Treasury (Algorand Integration)**
-
-UniLedger integrates **Algorand blockchain** to introduce verifiable payment tracking.
-
-#### How It Works
-
-1. **Organizer** sets a ticket price
-2. **Organizer wallet address** is stored
-3. **Participant** connects wallet (Pera Wallet)
-4. **Payment transaction** is signed client-side
-5. **Backend verifies** transaction on Algorand network
-6. **Entry access** is granted only after confirmation
-
-#### Key Properties
-
-✅ Payments are **not stored as balances** in database  
-✅ Blockchain is **source of truth** for transactions  
-✅ Backend verifies via **Algorand indexer**  
-✅ **No internal ledger manipulation**  
-✅ **Transparent and auditable**
-
-#### This Prevents:
-
-❌ Fake confirmations  
-❌ Manual manipulation of payment records  
-❌ Unauthorized event access
-
----
-
-### 5. **Notification Engine**
-
-System-generated notifications for:
-
-- Club join requests
-- Approval/rejection updates
-- Event approvals
-- Payment confirmations
-- Administrative decisions
-
-**Features:**
-- Mark as read
-- Delete notifications
-- Real-time updates
-
----
-
-### 6. **Admin Oversight Dashboard**
-
-Comprehensive admin panel providing:
-
-- 📊 Total users, clubs, and events
-- 📋 Pending requests tracking
-- ✅ Approved/Rejected filtering
-- 🔍 Full read-only inspection of clubs and events
-- ⚙️ Status control (suspend/cancel)
-
-> **Note:** Admin cannot modify content but can control lifecycle.
-
----
-
-## ⭐ What Makes UniLedger Unique
+# ⭐ What Makes UniLedger Unique
 
 | Feature | Description |
-|---------|-------------|
-| **🔄 Hybrid Architecture** | Combines centralized governance with decentralized finance |
-| **🎫 Verifiable Ticket Payments** | Blockchain-backed entry system prevents fraud |
-| **👥 Role-Driven Club Governance** | Structured authority hierarchy |
-| **💬 Discord-like Community Model** | Channels per club and event with visibility rules |
-| **💰 Transparent Treasury Oversight** | Admin can monitor without interfering |
-| **🎓 Extensible to Real Certificates** | Can mint NFTs for participation certificates |
+|----------|-------------|
+| Hybrid Governance | Centralized admin + decentralized finance |
+| NFT Ticketing | On-chain entry verification |
+| Escrow Crowdfunding | Trustless fundraising |
+| Transparent Treasury | Publicly auditable |
+| Modular Architecture | Easily extendable to DAO model |
 
 ---
 
-## 🏗️ Architecture Overview
+# 🔑 Key Features
 
-### **Frontend**
+## 1️⃣ Role-Based Governance (RBAC)
+
+### 🔵 College Admin
+- Approves clubs and events
+- Lifecycle control (suspend/cancel)
+- Read-only treasury oversight
+- Platform analytics dashboard
+
+### 🟢 Club Owner / Organizer
+- Create & manage clubs
+- Launch events
+- Set ticket pricing
+- Launch crowdfunding campaigns
+- Manage members & volunteers
+
+### 🟡 Volunteer
+- Entry QR scanning access
+- Limited moderation privileges
+
+### ⚪ Member / Participant
+- Join clubs
+- Buy NFT tickets
+- Contribute to crowdfunding
+- Participate in discussions
+
+---
+
+## 2️⃣ Club Infrastructure
+
+- Structured membership system  
+- Join request workflow  
+- Channel-based communication (Discord-like)  
+- Treasury tracking  
+- Notification engine  
+- Admin approval gating  
+
+---
+
+## 3️⃣ Event Management
+
+- Club-based or independent events  
+- Ticket pricing logic  
+- NFT-based ticket issuance  
+- Volunteer moderation  
+- Blockchain payment verification  
+- Channel discussions  
+
+---
+
+# 🌐 Web3 Layer
+
+UniLedger integrates full on-chain financial logic.
+
+---
+
+## 💰 4️⃣ On-Chain Crowdfunding (Smart Escrow)
+
+Large-scale events can launch blockchain-based funding campaigns.
+
+### Flow
+
+1. Organizer sets target & deadline  
+2. Escrow smart contract is deployed  
+3. Contributors send funds from wallet  
+4. If target met → funds released  
+5. If target not met → contributors refunded  
+
+### Benefits
+
+- No backend fund custody  
+- Automatic refund logic  
+- Transparent on-chain contributions  
+- Immutable transaction history  
+
+---
+
+## 🎟 5️⃣ NFT Ticket Generation
+
+Tickets are minted as blockchain assets (ASA).
+
+Each ticket includes:
+
+- Unique asset ID  
+- Wallet-bound ownership  
+- Event metadata  
+- Timestamp  
+- Embedded QR reference  
+
+Properties:
+
+- Non-duplicable  
+- Publicly verifiable  
+- Cannot be forged  
+- Transferable (configurable)  
+
+---
+
+## 📲 6️⃣ Decentralized QR Ticket Scanning
+
+Entry validation does NOT rely on database-only confirmation.
+
+### Entry Flow
+
+1. User presents QR  
+2. Volunteer scans  
+3. Scanner extracts wallet + asset ID  
+4. Backend verifies on blockchain  
+5. NFT ownership confirmed  
+6. Entry marked as consumed  
+
+### Fraud Protection
+
+- Screenshot reuse prevented  
+- Fake payment detection  
+- Double-entry blocked  
+- On-chain validation source of truth  
+
+---
+
+# 🏗 Architecture Overview
+
+## Frontend
+
 ```
 ├── React (Vite)
+├── TypeScript
 ├── React Router
-├── Redux (UI + Auth state)
-├── React Query (Server state caching)
-├── Axios (API communication)
-└── WalletConnect / Pera Wallet integration
+├── Redux
+├── React Query
+├── Axios
+└── Pera Wallet / WalletConnect
 ```
 
-### **Backend**
+## Backend
+
 ```
 ├── Node.js
 ├── Express.js
 ├── Supabase (PostgreSQL)
 ├── Session-based authentication
 ├── Role-based middleware
-└── RESTful API architecture
+├── Crowdfunding service
+├── NFT minting service
+└── QR verification service
 ```
 
-### **Blockchain Layer**
+## Blockchain Layer
+
 ```
-├── Algorand (Testnet / Mainnet)
-├── Wallet signature validation
-├── Transaction verification via indexer
-└── Event-based payment confirmation
+├── Algorand Testnet / Mainnet
+├── Smart escrow contracts
+├── ASA NFT minting
+├── Indexer verification
+└── Transaction validation worker
 ```
 
 ---
 
-## 🗄️ Database Design
+# 🗄 Database Design
 
-### **Core Entities**
+## Core Entities
 
 ```
-├── users
-├── clubs
-├── events
-├── club_members
-├── event_members
-├── channels
-├── messages
-├── join_requests
-├── event_payments
-└── notifications
+users
+clubs
+events
+club_members
+event_members
+channels
+messages
+join_requests
+event_payments
+crowdfunding_campaigns
+campaign_contributions
+nft_tickets
+ticket_scans
+notifications
 ```
 
-### **Relationships**
+## Relationships
 
-- ✅ Many-to-many membership models
-- ✅ Role enforcement via membership tables
-- ✅ Payment verification linked to blockchain transaction IDs
-- ✅ Visibility controlled at query level
+- Many-to-many membership tables  
+- Blockchain transaction IDs linked to payments  
+- NFT asset IDs stored for verification  
+- Escrow contract IDs linked to campaigns  
 
 ---
 
-## 🔐 Security Model
+# 🔐 Security Model
 
-- ✅ **Password hashing** with bcrypt
-- ✅ **HTTP-only session cookies**
-- ✅ **Role-based middleware enforcement**
-- ✅ **Server-side verification** of blockchain transactions
-- ✅ **Strict admin gating**
-- ✅ **No trust in frontend-only validation**
+- bcrypt password hashing  
+- HTTP-only session cookies  
+- Strict role middleware enforcement  
+- Server-side blockchain verification  
+- No trust in frontend-only validation  
+- Escrow-controlled fund releases  
+- One-time ticket scan protection  
 
 ---
 
-## 📦 Installation
+# 📦 Installation
 
-### Prerequisites
+## Prerequisites
 
-- Node.js (v18+)
-- npm or yarn
-- PostgreSQL (via Supabase)
+- Node.js v18+
+- Supabase account
 - Algorand wallet (Pera Wallet)
 
-### Frontend Setup
+---
+
+## Frontend
 
 ```bash
 cd frontend
@@ -299,28 +288,31 @@ npm install
 npm run dev
 ```
 
-### Backend Setup
+---
+
+## Backend
 
 ```bash
 cd backend
 npm install
 
-# Configure environment variables
 cp .env.example .env
-# Update .env with your Supabase and Algorand credentials
-
 npm run dev
 ```
 
-### Environment Variables
+---
+
+# 🔑 Environment Variables
 
 ```env
 # Backend
-DATABASE_URL=your_supabase_url
-SUPABASE_KEY=your_supabase_key
-SESSION_SECRET=your_session_secret
-ALGORAND_INDEXER_URL=https://testnet-idx.algonode.cloud
-ALGORAND_ALGOD_URL=https://testnet-api.algonode.cloud
+DATABASE_URL=
+SUPABASE_KEY=
+SESSION_SECRET=
+ALGORAND_ALGOD_URL=
+ALGORAND_INDEXER_URL=
+NFT_MANAGER_ADDRESS=
+ESCROW_DEPLOYER_PRIVATE_KEY=
 
 # Frontend
 VITE_API_URL=http://localhost:5000
@@ -329,111 +321,85 @@ VITE_ALGORAND_NETWORK=testnet
 
 ---
 
-## 💼 Use Cases
+# 📈 Scalability Strategy
 
-- 🎪 College fests
-- 💻 Tech symposiums
-- 🎭 Cultural events
-- ⚽ Sports competitions
-- 🏆 Hackathons
-- 📢 Club recruitment drives
-- 💵 Sponsorship transparency
-
----
-
-## 🔮 Future Enhancements
-
-- [ ] NFT-based digital certificates
-- [ ] Decentralized voting system for clubs
-- [ ] On-chain crowdfunding campaigns
-- [ ] Multi-college support
-- [ ] Advanced analytics dashboard
-- [ ] Token-based reward system
-- [ ] DAO-style governance model
-- [ ] Automated approval deadlines
-- [ ] Smart contract escrow for large events
+- Stateless REST APIs  
+- Indexed database queries  
+- Blockchain verification only when required  
+- Async blockchain worker queues  
+- Caching with React Query  
+- Modular service-based backend  
 
 ---
 
-## 📈 Scalability Strategy
+# 🚀 Deployment
 
-- ✅ **Stateless backend APIs**
-- ✅ **Caching via React Query**
-- ✅ **Indexed database queries**
-- ✅ **Blockchain verification only when required**
-- ✅ **Modular service-based backend structure**
-
----
-
-## 🚀 Deployment
-
-### **Recommended Stack**
+## Recommended Stack
 
 | Component | Platform |
-|-----------|----------|
+|------------|----------|
 | Frontend | Vercel / Netlify |
-| Backend | Node server / Docker / Railway |
+| Backend | Railway / Docker / VPS |
 | Database | Supabase |
-| Blockchain | Algorand Mainnet/Testnet |
+| Blockchain | Algorand Mainnet |
 | CI/CD | GitHub Actions |
 
-### **Production Checklist**
+---
 
-- [ ] Configure production environment variables
-- [ ] Set up SSL certificates
-- [ ] Configure CORS policies
-- [ ] Set up monitoring (Sentry, LogRocket)
-- [ ] Configure backup strategy
-- [ ] Set up CDN for static assets
-- [ ] Configure rate limiting
-- [ ] Set up automated testing pipeline
+# 🌍 Industry Positioning
+
+UniLedger is not just a campus app.
+
+It is a **Web3 Governance & Financial Transparency Protocol** adaptable to:
+
+- Universities  
+- Corporate innovation hubs  
+- Hackathon ecosystems  
+- DAO-lite communities  
+- Educational consortiums  
+
+It bridges institutional control with decentralized trust.
 
 ---
 
-## 🌍 Industry Positioning
+# 🔮 Future Enhancements
 
-UniLedger is **not just a campus app**. It is a **modular governance and financial transparency framework** adaptable to:
-
-- 🎓 **Universities**
-- 🏢 **Corporate internal communities**
-- 💻 **Hackathon ecosystems**
-- 🗳️ **DAO-lite organizations**
-- 🌐 **Educational consortiums**
-
-**It bridges institutional control and decentralized trust.**
+- Soulbound NFT certificates  
+- DAO-style club governance  
+- Governance tokens  
+- On-chain voting  
+- Multi-college federation model  
+- Public treasury dashboard  
+- Multi-sig admin wallets  
 
 ---
 
-## 🤝 Contributing
+# 🤝 Contributing
 
-We welcome contributions! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+1. Fork repository  
+2. Create feature branch  
+3. Commit changes  
+4. Push branch  
+5. Open Pull Request  
 
 ---
 
-## 📄 License
+# 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License
 
 ---
 
-## 📞 Contact
+# 📞 Contact
 
-**Project Maintainer:** Niraj Rajendra Naphade
+Project Maintainer: Niraj Rajendra Naphade  
 
-**Project Link:** [https://github.com/knokvik/uniledger](https://github.com/knokvik/uniledger)
+GitHub: https://github.com/knokvik/uniledger  
 
 ---
 
 <div align="center">
 
-Made with ❤️ for campus communities
-
-**[⬆ back to top](#uniledger)**
+Made with ❤️ for campus communities  
 
 </div>
